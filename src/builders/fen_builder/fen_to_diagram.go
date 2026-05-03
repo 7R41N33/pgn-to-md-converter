@@ -12,9 +12,9 @@ import (
 )
 
 const (
-	pieceOrder   = "KQRBNPkqrbnp"
-	spritePath   = "src/images/Chess_Pieces_Sprite.svg.png"
-	defaultOut  = "tmp/images/diagram.png"
+	pieceOrder  = "KQRBNPkqrbnp"
+	spritePath  = "src/images/Chess_Pieces_Sprite.svg.png"
+	defaultOut = "tmp/images/diagram.png"
 )
 
 const (
@@ -33,7 +33,7 @@ func main() {
 	}
 
 	fen := os.Args[1]
-	outputPath := "tmp/images/diagram.png"
+	outputPath := defaultOut
 	if len(os.Args) >= 3 {
 		outputPath = os.Args[2]
 	}
@@ -120,7 +120,6 @@ func isValidEnPassant(s string) bool {
 }
 
 func generateDiagram(fen, outputPath string) error {
-	// Try multiple possible sprite paths
 	spritePaths := []string{
 		spritePath,
 		"../../images/Chess_Pieces_Sprite.svg.png",
