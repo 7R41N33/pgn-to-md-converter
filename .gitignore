@@ -1,0 +1,14 @@
+PGNs/*
+!PGNs/.keep
+
+Markdowns/*
+!Markdowns/.keep
+
+**/tmp/*
+!**/tmp/.keep
+
+*.broken
+*.bak
+*.backup
+*.html
+*.out
