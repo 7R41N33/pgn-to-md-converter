@@ -145,7 +145,9 @@ func generateDiagram(fen, outputPath string) error {
 
 	cellSize := 60
 	boardSize := 8 * cellSize
-	board := image.NewRGBA(image.Rect(0, 0, boardSize, boardSize))
+	// Add extra space for coordinates: 20px left for numbers, 20px bottom for letters
+	imgWidth := boardSize + 20
+	board := image.NewRGBA(image.Rect(20, 0, imgWidth, boardSize))
 
 	lightColor := color.RGBA{240, 217, 181, 255}
 	darkColor := color.RGBA{181, 136, 99, 255}
@@ -156,15 +158,13 @@ func generateDiagram(fen, outputPath string) error {
 			if (row+col)%2 == 1 {
 				c = darkColor
 			}
-			rect := image.Rect(col*cellSize, row*cellSize, (col+1)*cellSize, (row+1)*cellSize)
+			rect := image.Rect(20+col*cellSize, row*cellSize, 20+(col+1)*cellSize, (row+1)*cellSize)
 			draw.Draw(board, rect, &image.Uniform{c}, image.Point{}, draw.Src)
 		}
 	}
-
-	// Add coordinates (a-h on bottom, 1-8 on left)
-	// Note: This requires a font to draw text. For simplicity,
-	// we'll skip text rendering in this basic version.
-	// In a real implementation, you would use a font library like github.com/golang/freetype
+	
+	// Add coordinates: a-h on bottom, 1-8 on left
+	addCoordinates(board, cellSize)
 
 	fields := strings.Fields(fen)
 	position := fields[FENPosition]
@@ -240,10 +240,78 @@ func drawPiece(board *image.RGBA, piece image.Image, destRect image.Rectangle, s
 	}
 }
 
-// Note: To add text coordinates (a-h, 1-8), you would need to:
-// 1. Add "image/font" and "golang.org/x/image/font" to imports
-// 2. Load a font file
-// 3. Use font.Drawer to draw text
-// 
-// For simplicity, this version skips text rendering.
-// The board is 480x480 (8 cells x 60px each).
+func addCoordinates(board draw.Image, cellSize int) {
+	// Draw letters a-h on bottom (y = 8*cellSize + 10)
+	letters := "abcdefgh"
+	for i := 0; i < 8; i++ {
+		x := 20 + i*cellSize + cellSize/2 - 4 // Center the letter, accounting for 20px left offset
+		y := 8*cellSize + 15 // Below the board
+		drawLetter(board, x, y, letters[i])
+	}
+
+	// Draw numbers 1-8 on left (x = 5)
+	for i := 0; i < 8; i++ {
+		x := 5 // Left of the board
+		y := (7-i)*cellSize + cellSize/2 + 4 // Center vertically, counting from top
+		drawNumber(board, x, y, i+1)
+	}
+}
+
+func drawLetter(board draw.Image, x, y int, letter byte) {
+	// Simple bitmap for letters (5x7 pixel font)
+	fontMap := map[byte][]string{
+		'a': {"  *  ", " * * ", "*****", "*   *", "*   *", "*   *", "     "},
+		'b': {"**** ", "*   *", "*   *", "**** ", "*   *", "*   *", "**** "},
+		'c': {" ****", "*    ", "*    ", "*    ", "*    ", "*    ", " ****"},
+		'd': {"**** ", "*   *", "*   *", "*   *", "*   *", "*   *", "**** "},
+		'e': {"*****", "*    ", "*    ", "*****", "*    ", "*    ", "*****"},
+		'f': {"*****", "*    ", "*    ", "**** ", "*    ", "*    ", "*    "},
+		'g': {" ****", "*    ", "*    ", "* ***", "*   *", "*   *", " ****"},
+		'h': {"*   *", "*   *", "*   *", "*****", "*   *", "*   *", "*   *"},
+	}
+	
+	if glyph, ok := fontMap[letter]; ok {
+		for gy, row := range glyph {
+			for gx, ch := range row {
+				if ch == '*' {
+					board.Set(x+gx, y+gy, color.Black)
+				}
+			}
+		}
+	}
+}
+
+func drawNumber(board draw.Image, x, y int, num int) {
+	str := fmt.Sprintf("%d", num)
+	if len(str) == 1 {
+		drawDigit(board, x, y, str[0])
+	} else if len(str) == 2 {
+		drawDigit(board, x, y, str[0])
+		drawDigit(board, x+5, y, str[1])
+	}
+}
+
+func drawDigit(board draw.Image, x, y int, digit byte) {
+	fontMap := map[byte][]string{
+		'0': {" *** ", "*   *", "*  **", "* * *", "**  *", "*   *", " *** "},
+		'1': {"  *  ", " * * ", "   * ", "   * ", "   * ", "   * ", "*****"},
+		'2': {" *** ", "*   *", "    *", "  ** ", " *   ", "*    ", "*****"},
+		'3': {" *** ", "*   *", "    *", "  ** ", "    *", "*   *", " *** "},
+		'4': {"*   *", "*   *", "*   *", "*****", "    *", "    *", "    *"},
+		'5': {"*****", "*    ", "*    ", "**** ", "    *", "*   *", " *** "},
+		'6': {" *** ", "*    ", "*    ", "**** ", "*   *", "*   *", " *** "},
+		'7': {"*****", "    *", "   * ", "  *  ", "  *  ", "  *  ", "  *  "},
+		'8': {" *** ", "*   *", "*   *", " *** ", "*   *", "*   *", " *** "},
+		'9': {" *** ", "*   *", "*   *", " ****", "    *", "*   *", " *** "},
+	}
+	
+	if glyph, ok := fontMap[digit]; ok {
+		for gy, row := range glyph {
+			for gx, ch := range row {
+				if ch == '*' {
+					board.Set(x+gx, y+gy, color.Black)
+				}
+			}
+		}
+	}
+}
