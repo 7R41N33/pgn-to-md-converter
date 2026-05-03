@@ -143,7 +143,7 @@ func generateDiagram(fen, outputPath string) error {
 	pieceWidth := spriteBounds.Dx() / 6
 	pieceHeight := spriteBounds.Dy() / 2
 
-	cellSize := 64
+	cellSize := 60
 	boardSize := 8 * cellSize
 	board := image.NewRGBA(image.Rect(0, 0, boardSize, boardSize))
 
