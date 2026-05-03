@@ -22,7 +22,7 @@ func TestValidateFEN_InvalidPosition(t *testing.T) {
 	invalidFENs := []string{
 		"rnbqkbnr/pppppppp/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0", // Missing fullmove
 		"rnbqkbnr/pppppppp/9/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", // Invalid row
-	}
+		}
 	for _, fen := range invalidFENs {
 		if err := validateFEN(fen); err == nil {
 			t.Errorf("Invalid FEN accepted: %s", fen)
@@ -48,7 +48,7 @@ func TestValidateFEN_InvalidEnPassant(t *testing.T) {
 	invalidEP := []string{
 		"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq i9 0 1",
 		"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq e9 0 1",
-	}
+		}
 	for _, fen := range invalidEP {
 		if err := validateFEN(fen); err == nil {
 			t.Errorf("Should reject invalid en passant: %s", fen)
@@ -109,7 +109,6 @@ func TestGenerateDiagram_CreatesFile(t *testing.T) {
 func TestGenerateDiagram_InvalidFEN(t *testing.T) {
 	fen := "invalid fen"
 
-	// Invalid FEN should fail validation
 	if err := validateFEN(fen); err == nil {
 		t.Error("Should return error for invalid FEN")
 	}
@@ -129,7 +128,7 @@ func TestValidateFEN_TooFewFields(t *testing.T) {
 }
 
 func TestGenerateDiagram_OutputPath(t *testing.T) {
-	fen := "8/8/8/8/8/8/8 w - - 0 1"
+	fen := "8/8/8/8/8/8/8/8 w - - 0 1"
 	outputPath := "/tmp/test_empty_board.png"
 
 	if err := generateDiagram(fen, outputPath); err != nil {
@@ -144,8 +143,6 @@ func TestGenerateDiagram_OutputPath(t *testing.T) {
 }
 
 func TestDefaultOutputPath(t *testing.T) {
-	// Test that default path is used when not specified
-	// This is tested indirectly via command line args
 	if defaultOut != "tmp/images/diagram.png" {
 		t.Errorf("Default output path should be tmp/images/diagram.png, got %s", defaultOut)
 	}

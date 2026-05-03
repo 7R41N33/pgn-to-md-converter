@@ -12,18 +12,18 @@ import (
 )
 
 const (
-	pieceOrder  = "KQRBNPkqrbnp"
-	spritePath  = "src/images/Chess_Pieces_Sprite.svg.png"
+	pieceOrder = "KQRBNPkqrbnp"
+	spritePath = "src/images/Chess_Pieces_Sprite.svg.png"
 	defaultOut = "tmp/images/diagram.png"
 )
 
 const (
-	FENPosition   = 0
+	FENPosition    = 0
 	FENActiveColor = 1
-	FENCastling   = 2
-	FENEnPassant  = 3
-	FENHalfmove   = 4
-	FENFullmove   = 5
+	FENCastling    = 2
+	FENEnPassant   = 3
+	FENHalfmove    = 4
+	FENFullmove    = 5
 )
 
 func main() {
@@ -161,6 +161,11 @@ func generateDiagram(fen, outputPath string) error {
 		}
 	}
 
+	// Add coordinates (a-h on bottom, 1-8 on left)
+	// Note: This requires a font to draw text. For simplicity,
+	// we'll skip text rendering in this basic version.
+	// In a real implementation, you would use a font library like github.com/golang/freetype
+
 	fields := strings.Fields(fen)
 	position := fields[FENPosition]
 	rows := strings.Split(position, "/")
@@ -234,3 +239,11 @@ func drawPiece(board *image.RGBA, piece image.Image, destRect image.Rectangle, s
 		}
 	}
 }
+
+// Note: To add text coordinates (a-h, 1-8), you would need to:
+// 1. Add "image/font" and "golang.org/x/image/font" to imports
+// 2. Load a font file
+// 3. Use font.Drawer to draw text
+// 
+// For simplicity, this version skips text rendering.
+// The board is 480x480 (8 cells x 60px each).
