@@ -54,37 +54,49 @@ go test -v
 
 ## Использование fen_builder
 
-Скрипт `fen_builder` генерирует изображения шахматных позиций из FEN-строк.
+Скрипт `fen_builder` генерирует изображения шахматных позиций из FEN-строк, используя спрайт `src/images/Chess_Pieces_Sprite.svg.png`.
 
 ### Через бинарник
 
 ```bash
-./bin/fen_to_diagram <fen_string> <output_path>
+./bin/fen_to_diagram <fen_string> [output_path]
 ```
 
 ### Через исходный код
 
 ```bash
 cd src/builders/fen_builder/
-go run fen_to_diagram.go <fen_string> <output_path>
+go run fen_to_diagram.go <fen_string> [output_path]
 ```
+
+### Параметры
+
+- `<fen_string>` — FEN-строка (обязательно)
+- `[output_path]` — Путь для сохранения PNG-изображения (опционально, по умолчанию `tmp/images/diagram.png`)
 
 ### Примеры
 
 ```bash
-# Генерация диаграммы из FEN
+# Генерация диаграммы с указанием пути
 ./bin/fen_to_diagram "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" board.png
+
+# Генерация с путём по умолчанию (tmp/images/diagram.png)
+./bin/fen_to_diagram "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+
+# Пример из пользовательского запроса
+./bin/fen_to_diagram "8/pp3ppp/8/2p5/8/3P2P1/PP2P2P/8 w - - 0 1"
 
 # Через исходный код
 cd src/builders/fen_builder/
-go run fen_to_diagram.go "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" board.png
+go run fen_to_diagram.go "8/8/8/8/8/8/8 w - - 0 1" empty_board.png
 ```
 
 ### Описание
 
 - **Вход:** FEN-строка (стандартный формат записи позиции)
-- **Выход:** PNG-изображение шахматной доски
+- **Выход:** PNG-изображение шахматной доски (64x64 пикселей на клетку, всего 512x512)
 - **Требования:** Валидный FEN (при некорректном формате возвращает ошибку, не падает с panic)
+- **Спрайт:** Используется `src/images/Chess_Pieces_Sprite.svg.png` (1280x427, 2 строки x 6 столбцов)
 
 ### Тестирование
 

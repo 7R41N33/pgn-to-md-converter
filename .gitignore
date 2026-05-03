@@ -5,7 +5,10 @@ Markdowns/*
 !Markdowns/.keep
 
 **/tmp/*
+**/tmp/images/*
 !**/tmp/.keep
+!**/tmp/images/.keep
+!**/tmp/images/*.png
 
 *.broken
 *.bak
