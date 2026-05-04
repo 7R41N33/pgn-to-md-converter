@@ -7,6 +7,8 @@ import (
 	"os"
 	"regexp"
 	"strings"
+
+	"fen-diagram/builders/fenlib"
 )
 
 var nagMap = map[string]string{
@@ -497,10 +499,11 @@ func main() {
 	src := flag.String("src", "", "Input PGN file")
 	out := flag.String("out", "", "Output Markdown file")
 	skipChapters := flag.Int("skip", 0, "Number of chapters to skip from the beginning")
+	inlineImages := flag.Bool("inline-images", false, "Replace FEN strings with inline base64 images")
 	flag.Parse()
 
 	if *src == "" || *out == "" {
-		fmt.Fprintf(os.Stderr, "Usage: %s -src <pgn_path> -out <md_path> [-skip <n>]\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Usage: %s -src <pgn_path> -out <md_path> [-skip <n>] [-inline-images]\n", os.Args[0])
 		os.Exit(1)
 	}
 
@@ -532,6 +535,12 @@ func main() {
 		output += "## " + title + "\n\n"
 
 		moves := extractMoveText(g)
+		
+		// Replace FEN strings with inline base64 images if flag is set
+		if *inlineImages {
+			moves = replaceFENWithImages(moves)
+		}
+		
 		output += moves + "\n\n"
 	}
 
@@ -543,4 +552,22 @@ func main() {
 
 	fmt.Println("Done:", *out)
 	fmt.Println("Total chapters processed:", chapterNum)
+}
+
+// replaceFENWithImages finds FEN strings in text and replaces them with base64-encoded PNG images
+func replaceFENWithImages(text string) string {
+	// Pattern to match FEN strings: exactly 6 space-separated fields
+	// Field 1: piece placement (8 rows separated by /)
+	// Fields 2-6: active color, castling, en passant, halfmove, fullmove
+	fenPattern := regexp.MustCompile(`[KQRBNPkqrbnp1-8/]+\s+[wb]\s+[KQkq-]+\s+[a-h1-8-]+\s+\d+\s+\d+`)
+	
+	return fenPattern.ReplaceAllStringFunc(text, func(match string) string {
+		// Validate and generate base64 image
+		b64, err := fenlib.GenerateDiagramBase64(match)
+		if err != nil {
+			// Return original FEN if generation fails
+			return match
+		}
+		return fmt.Sprintf("![Position](data:image/png;base64,%s)", b64)
+	})
 }
