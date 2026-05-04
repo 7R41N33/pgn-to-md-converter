@@ -76,6 +76,10 @@ func fixCommentSpacing(text string) string {
 	// Handle "O-O Ob6!" -> "O-O b6!" (after previous replacements)
 	text = regexp.MustCompile(`O-O\s+Ob`).ReplaceAllString(text, "O-O b")
 	text = regexp.MustCompile(`O-O-O\s+Ob`).ReplaceAllString(text, "O-O-O b")
+	// Handle "O-OO-O" -> "O-O O-O" (two castling moves without space)
+	text = strings.ReplaceAll(text, "O-OO-O", "O-O O-O")
+	text = strings.ReplaceAll(text, "O-O-OO-O", "O-O-O O-O")
+	text = strings.ReplaceAll(text, "O-OO-O-O", "O-O O-O-O")
 	
 	// Fix 2: Remove space incorrectly added before move number dots
 	// "b7- b5" -> "b7-b5"
@@ -135,10 +139,30 @@ func fixCommentSpacing(text string) string {
 	re10c := regexp.MustCompile(`(\d+\.\.\.[KQRBNa-h][^\s]*)([A-Z])`)
 	text = re10c.ReplaceAllString(text, "$1 $2")
 	
-	// Fix 10: Move followed by text without space (e.g., "17.Be4I still")
-	// "17.Be4I still" -> "17.Be4 I still"
-	re11 := regexp.MustCompile(`(\d+\.[KQRBNa-h][^\s]*|[KQRBNa-h][1-8][^\s]*)([A-Z])`)
-	text = re11.ReplaceAllString(text, "$1 $2")
+	// Fix 10: Text with number followed by move (e.g., "worse1 6.dxe5" -> "worse 16.dxe5")
+	// Handle case where text ends with digit, then space, then digit+move
+	re10d := regexp.MustCompile(`([a-z]+)(\d)\s+(\d\.[KQRBNa-h][^\s]*)`)
+	text = re10d.ReplaceAllString(text, "$1 $2$3")
+	
+	// Also handle text directly followed by move (no space): "worse16.dxe5" -> "worse 16.dxe5"
+	re10e := regexp.MustCompile(`([a-z]+)(\d+\.[KQRBNa-h][^\s]*)`)
+	text = re10e.ReplaceAllString(text, "$1 $2")
+	
+	// Fix 11: Text with number followed by move with dots (e.g., "Following1 6...Qb8" -> "Following 16...Qb8")
+	re11a := regexp.MustCompile(`([a-z]+)(\d)\s+(\d\.\.\.[KQRBNa-h][^\s]*)` )
+	text = re11a.ReplaceAllString(text, "$1 $2$3")
+	
+	// Also handle text directly followed by move with dots: "Following16...Qb8" -> "Following 16...Qb8"
+	re11b := regexp.MustCompile(`([a-z]+)(\d+\.\.\.[KQRBNa-h][^\s]*)` )
+	text = re11b.ReplaceAllString(text, "$1 $2")
+	
+	// Fix 12: NAG symbol followed by move without space (e.g., "17.Ne4+-16. Nb5" -> "17.Ne4+- 16. Nb5")
+	re12 := regexp.MustCompile(`([+#=!?±⩲⩱\-]+)(\d+\.)`)
+	text = re12.ReplaceAllString(text, "$1 $2")
+	
+	// Fix 13: Move followed by text without space (e.g., "17.Be4I still" -> "17.Be4 I still")
+	re13 := regexp.MustCompile(`(\d+\.[KQRBNa-h][^\s]*)([A-Z])` )
+	text = re13.ReplaceAllString(text, "$1 $2")
 	
 	return text
 }

@@ -688,3 +688,52 @@ func TestFENEmptyLineInOutput(t *testing.T) {
 		t.Errorf("Moves line not found after empty line. Output:\n%s", output)
 	}
 }
+
+func TestFixCommentSpacing_CastlingDouble(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"6.O-OO-O since", "6.O-O O-O since"},
+		{"O-OO-O since", "O-O O-O since"},
+		{"O-O-OO-O since", "O-O-O O-O since"},
+	}
+	for _, tt := range tests {
+		result := fixCommentSpacing(tt.input)
+		if result != tt.expected {
+			t.Errorf("fixCommentSpacing(%q) = %q, want %q", tt.input, result, tt.expected)
+		}
+	}
+}
+
+func TestFixCommentSpacing_TextWithNumberThenMove(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"worse1 6.dxe5", "worse 16.dxe5"},
+		{"Following1 6...Qb8", "Following 16...Qb8"},
+	}
+	for _, tt := range tests {
+		result := fixCommentSpacing(tt.input)
+		if result != tt.expected {
+			t.Errorf("fixCommentSpacing(%q) = %q, want %q", tt.input, result, tt.expected)
+		}
+	}
+}
+
+func TestFixCommentSpacing_NAGThenMove(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"17.Ne4+-16. Nb5", "17.Ne4+- 16. Nb5"},
+		{"Ne4+-16. Nb5", "Ne4+- 16. Nb5"},
+	}
+	for _, tt := range tests {
+		result := fixCommentSpacing(tt.input)
+		if result != tt.expected {
+			t.Errorf("fixCommentSpacing(%q) = %q, want %q", tt.input, result, tt.expected)
+		}
+	}
+}
