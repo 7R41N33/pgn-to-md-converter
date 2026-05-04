@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/base64"
 	"fmt"
 	"image"
 	"image/color"
@@ -28,14 +30,22 @@ const (
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintf(os.Stderr, "Usage: %s <fen_string> [output_path]\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Usage: %s <fen_string> [output_path] [--base64]\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "  --base64: output base64-encoded PNG to stdout instead of file\n")
 		os.Exit(1)
 	}
 
 	fen := os.Args[1]
 	outputPath := defaultOut
-	if len(os.Args) >= 3 {
-		outputPath = os.Args[2]
+	base64Output := false
+
+	// Parse arguments
+	for i := 2; i < len(os.Args); i++ {
+		if os.Args[i] == "--base64" {
+			base64Output = true
+		} else if !strings.HasPrefix(os.Args[i], "--") {
+			outputPath = os.Args[i]
+		}
 	}
 
 	if err := validateFEN(fen); err != nil {
@@ -43,12 +53,20 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := generateDiagram(fen, outputPath); err != nil {
-		fmt.Fprintf(os.Stderr, "Error generating diagram: %v\n", err)
-		os.Exit(1)
+	if base64Output {
+		b64, err := generateDiagramBase64(fen)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error generating diagram: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Println(b64)
+	} else {
+		if err := generateDiagram(fen, outputPath); err != nil {
+			fmt.Fprintf(os.Stderr, "Error generating diagram: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Diagram saved to: %s\n", outputPath)
 	}
-
-	fmt.Printf("Diagram saved to: %s\n", outputPath)
 }
 
 func validateFEN(fen string) error {
@@ -120,6 +138,45 @@ func isValidEnPassant(s string) bool {
 }
 
 func generateDiagram(fen, outputPath string) error {
+	board, err := generateBoard(fen)
+	if err != nil {
+		return err
+	}
+
+	os.MkdirAll(filepath.Dir(outputPath), 0755)
+	out, err := os.Create(outputPath)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	return png.Encode(out, board)
+}
+
+// generateDiagramBase64 generates a chess diagram and returns it as a base64-encoded PNG string
+func generateDiagramBase64(fen string) (string, error) {
+	if err := validateFEN(fen); err != nil {
+		return "", err
+	}
+
+	board, err := generateBoard(fen)
+	if err != nil {
+		return "", err
+	}
+
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, board); err != nil {
+		return "", err
+	}
+
+	return base64.StdEncoding.EncodeToString(buf.Bytes()), nil
+}
+
+func generateBoard(fen string) (*image.RGBA, error) {
+	if err := validateFEN(fen); err != nil {
+		return nil, err
+	}
+
 	spritePaths := []string{
 		spritePath,
 		"../../images/Chess_Pieces_Sprite.svg.png",
@@ -136,7 +193,7 @@ func generateDiagram(fen, outputPath string) error {
 		}
 	}
 	if sprite == nil {
-		return fmt.Errorf("failed to load sprite: %v", err)
+		return nil, fmt.Errorf("failed to load sprite: %v", err)
 	}
 
 	spriteBounds := sprite.Bounds()
@@ -197,14 +254,7 @@ func generateDiagram(fen, outputPath string) error {
 		}
 	}
 
-	os.MkdirAll(filepath.Dir(outputPath), 0755)
-	out, err := os.Create(outputPath)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-
-	return png.Encode(out, board)
+	return board, nil
 }
 
 func loadSprite(path string) (image.Image, error) {

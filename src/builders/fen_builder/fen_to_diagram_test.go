@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/base64"
 	"image"
 	"image/color"
 	"image/draw"
@@ -290,6 +292,118 @@ func TestAddCoordinates_Position(t *testing.T) {
 
 	if !foundBlackPixel {
 		t.Error("Expected coordinate letters to be drawn on bottom border")
+	}
+}
+
+func TestGenerateDiagramBase64_ValidFEN(t *testing.T) {
+	fen := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+
+	b64, err := generateDiagramBase64(fen)
+	if err != nil {
+		t.Errorf("Failed to generate base64 diagram: %v", err)
+	}
+
+	if b64 == "" {
+		t.Error("Base64 output should not be empty")
+	}
+
+	// Verify it's valid base64
+	decoded, err := base64.StdEncoding.DecodeString(b64)
+	if err != nil {
+		t.Errorf("Output is not valid base64: %v", err)
+	}
+
+	if len(decoded) == 0 {
+		t.Error("Decoded output should not be empty")
+	}
+
+	// Verify it starts with PNG signature (89 50 4E 47)
+	if len(decoded) < 4 || decoded[0] != 0x89 || decoded[1] != 0x50 || decoded[2] != 0x4E || decoded[3] != 0x47 {
+		t.Error("Decoded output is not a valid PNG file")
+	}
+}
+
+func TestGenerateDiagramBase64_InvalidFEN(t *testing.T) {
+	fen := "invalid fen"
+
+	_, err := generateDiagramBase64(fen)
+	if err == nil {
+		t.Error("Should return error for invalid FEN")
+	}
+}
+
+func TestGenerateDiagramBase64_EmptyBoard(t *testing.T) {
+	fen := "8/8/8/8/8/8/8/8 w - - 0 1"
+
+	b64, err := generateDiagramBase64(fen)
+	if err != nil {
+		t.Errorf("Failed to generate base64 diagram: %v", err)
+	}
+
+	if b64 == "" {
+		t.Error("Base64 output should not be empty")
+	}
+
+	// Decode and verify dimensions
+	decoded, _ := base64.StdEncoding.DecodeString(b64)
+	img, err := png.Decode(bytes.NewReader(decoded))
+	if err != nil {
+		t.Errorf("Failed to decode PNG: %v", err)
+	}
+
+	cellSize := 60
+	borderSize := cellSize / 2
+	expectedSize := 8*cellSize + 2*borderSize
+
+	if img.Bounds().Dx() != expectedSize || img.Bounds().Dy() != expectedSize {
+		t.Errorf("Expected image size %dx%d, got %dx%d", expectedSize, expectedSize, img.Bounds().Dx(), img.Bounds().Dy())
+	}
+}
+
+func TestGenerateBoard_ValidFEN(t *testing.T) {
+	fen := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+
+	board, err := generateBoard(fen)
+	if err != nil {
+		t.Errorf("Failed to generate board: %v", err)
+	}
+
+	if board == nil {
+		t.Error("Board should not be nil")
+	}
+
+	cellSize := 60
+	borderSize := cellSize / 2
+	expectedSize := 8*cellSize + 2*borderSize
+
+	if board.Bounds().Dx() != expectedSize || board.Bounds().Dy() != expectedSize {
+		t.Errorf("Expected board size %dx%d, got %dx%d", expectedSize, expectedSize, board.Bounds().Dx(), board.Bounds().Dy())
+	}
+}
+
+func TestGenerateBoard_InvalidFEN(t *testing.T) {
+	fen := "invalid fen"
+
+	_, err := generateBoard(fen)
+	if err == nil {
+		t.Error("Should return error for invalid FEN")
+	}
+}
+
+func TestGenerateBoard_WhiteBorder(t *testing.T) {
+	fen := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+
+	board, err := generateBoard(fen)
+	if err != nil {
+		t.Errorf("Failed to generate board: %v", err)
+	}
+
+	// Check that border pixels are white
+	borderColor := board.At(5, 5) // Top-left corner should be white (border)
+
+	r, g, b, _ := borderColor.RGBA()
+	if r != 65535 || g != 65535 || b != 65535 {
+		t.Errorf("Expected white border, got color at (5,5): %v", borderColor)
 	}
 }
 
