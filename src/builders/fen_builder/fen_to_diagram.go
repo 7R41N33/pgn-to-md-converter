@@ -145,10 +145,17 @@ func generateDiagram(fen, outputPath string) error {
 
 	cellSize := 60
 	boardSize := 8 * cellSize
-	// Add extra space for coordinates: 20px left for numbers, 20px bottom for letters
-	imgWidth := boardSize + 20
-	board := image.NewRGBA(image.Rect(20, 0, imgWidth, boardSize))
+	borderSize := cellSize / 2 // Half cell border around board
 
+	// Image size: board + border on all sides
+	imgSize := boardSize + 2*borderSize
+	board := image.NewRGBA(image.Rect(0, 0, imgSize, imgSize))
+
+	// Fill entire image with white (border)
+	white := color.RGBA{255, 255, 255, 255}
+	draw.Draw(board, board.Bounds(), &image.Uniform{white}, image.Point{}, draw.Src)
+
+	// Draw board cells starting at (borderSize, borderSize)
 	lightColor := color.RGBA{240, 217, 181, 255}
 	darkColor := color.RGBA{181, 136, 99, 255}
 
@@ -158,13 +165,15 @@ func generateDiagram(fen, outputPath string) error {
 			if (row+col)%2 == 1 {
 				c = darkColor
 			}
-			rect := image.Rect(20+col*cellSize, row*cellSize, 20+(col+1)*cellSize, (row+1)*cellSize)
+			x0 := borderSize + col*cellSize
+			y0 := borderSize + row*cellSize
+			rect := image.Rect(x0, y0, x0+cellSize, y0+cellSize)
 			draw.Draw(board, rect, &image.Uniform{c}, image.Point{}, draw.Src)
 		}
 	}
-	
-	// Add coordinates: a-h on bottom, 1-8 on left
-	addCoordinates(board, cellSize)
+
+	// Add coordinates on the white border
+	addCoordinates(board, cellSize, borderSize)
 
 	fields := strings.Fields(fen)
 	position := fields[FENPosition]
@@ -178,7 +187,9 @@ func generateDiagram(fen, outputPath string) error {
 			} else {
 				pieceImg, err := extractPiece(sprite, pieceWidth, pieceHeight, ch)
 				if err == nil {
-					destRect := image.Rect(col*cellSize, i*cellSize, (col+1)*cellSize, (i+1)*cellSize)
+					x0 := borderSize + col*cellSize
+					y0 := borderSize + i*cellSize
+					destRect := image.Rect(x0, y0, x0+cellSize, y0+cellSize)
 					drawPiece(board, pieceImg, destRect, pieceWidth, pieceHeight, cellSize)
 				}
 				col++
@@ -231,28 +242,43 @@ func extractPiece(sprite image.Image, pieceWidth, pieceHeight int, piece rune) (
 }
 
 func drawPiece(board *image.RGBA, piece image.Image, destRect image.Rectangle, srcW, srcH, destSize int) {
-	for x := 0; x < destSize; x++ {
-		for y := 0; y < destSize; y++ {
-			srcX := x * srcW / destSize
-			srcY := y * srcH / destSize
-			board.Set(destRect.Min.X+x, destRect.Min.Y+y, piece.At(srcX, srcY))
+	margin := 5 // Reduce piece size by 5 pixels on each side
+	innerSize := destSize - 2*margin
+
+	if innerSize <= 0 {
+		return
+	}
+
+	for x := 0; x < innerSize; x++ {
+		for y := 0; y < innerSize; y++ {
+			srcX := x * srcW / innerSize
+			srcY := y * srcH / innerSize
+			pieceColor := piece.At(srcX, srcY)
+
+			// Only draw non-transparent pixels (alpha > 0)
+			r, g, b, a := pieceColor.RGBA()
+			if a > 0 {
+				board.Set(destRect.Min.X+margin+x, destRect.Min.Y+margin+y, color.RGBA{uint8(r), uint8(g), uint8(b), uint8(a)})
+			}
 		}
 	}
 }
 
-func addCoordinates(board draw.Image, cellSize int) {
-	// Draw letters a-h on bottom (y = 8*cellSize + 10)
+func addCoordinates(board draw.Image, cellSize, borderSize int) {
+	boardSize := 8 * cellSize
+
+	// Draw letters a-h on bottom border
 	letters := "abcdefgh"
 	for i := 0; i < 8; i++ {
-		x := 20 + i*cellSize + cellSize/2 - 4 // Center the letter, accounting for 20px left offset
-		y := 8*cellSize + 15 // Below the board
+		x := borderSize + i*cellSize + cellSize/2 - 3 // Center horizontally in cell
+		y := boardSize + borderSize + borderSize/2 - 4 // Center vertically in bottom border
 		drawLetter(board, x, y, letters[i])
 	}
 
-	// Draw numbers 1-8 on left (x = 5)
+	// Draw numbers 1-8 on left border (1 at bottom, 8 at top)
 	for i := 0; i < 8; i++ {
-		x := 5 // Left of the board
-		y := (7-i)*cellSize + cellSize/2 + 4 // Center vertically, counting from top
+		x := borderSize/2 - 3 // Center horizontally in left border
+		y := borderSize + (7-i)*cellSize + cellSize/2 - 4 // Center vertically, 1 at bottom
 		drawNumber(board, x, y, i+1)
 	}
 }

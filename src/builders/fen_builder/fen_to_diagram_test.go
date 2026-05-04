@@ -1,6 +1,10 @@
 package main
 
 import (
+	"image"
+	"image/color"
+	"image/draw"
+	"image/png"
 	"os"
 	"testing"
 )
@@ -161,4 +165,138 @@ func TestGenerateDiagram_ProvidedFEN(t *testing.T) {
 		t.Error("Output file was not created")
 	}
 	os.Remove(outputPath)
+}
+
+func TestGenerateDiagram_ImageSizeWithBorder(t *testing.T) {
+	fen := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+	outputPath := "/tmp/test_border_size.png"
+
+	if err := generateDiagram(fen, outputPath); err != nil {
+		t.Errorf("Failed to generate diagram: %v", err)
+	}
+
+	// Load the generated image and check dimensions
+	file, err := os.Open(outputPath)
+	if err != nil {
+		t.Errorf("Failed to open output file: %v", err)
+	}
+	defer file.Close()
+
+	img, err := decodeImage(file)
+	if err != nil {
+		t.Errorf("Failed to decode image: %v", err)
+	}
+
+	cellSize := 60
+	borderSize := cellSize / 2
+	expectedSize := 8*cellSize + 2*borderSize
+
+	if img.Bounds().Dx() != expectedSize || img.Bounds().Dy() != expectedSize {
+		t.Errorf("Expected image size %dx%d, got %dx%d", expectedSize, expectedSize, img.Bounds().Dx(), img.Bounds().Dy())
+	}
+
+	os.Remove(outputPath)
+}
+
+func TestGenerateDiagram_WhiteBorder(t *testing.T) {
+	fen := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+	outputPath := "/tmp/test_white_border.png"
+
+	if err := generateDiagram(fen, outputPath); err != nil {
+		t.Errorf("Failed to generate diagram: %v", err)
+	}
+
+	file, err := os.Open(outputPath)
+	if err != nil {
+		t.Errorf("Failed to open output file: %v", err)
+	}
+	defer file.Close()
+
+	img, err := decodeImage(file)
+	if err != nil {
+		t.Errorf("Failed to decode image: %v", err)
+	}
+
+	// Check that border pixels are white
+	borderColor := img.At(5, 5) // Top-left corner should be white (border)
+
+	r, g, b, _ := borderColor.RGBA()
+	if r != 65535 || g != 65535 || b != 65535 {
+		t.Errorf("Expected white border, got color at (5,5): %v", borderColor)
+	}
+
+	os.Remove(outputPath)
+}
+
+func TestDrawPiece_NoTransparency(t *testing.T) {
+	// Create a test board
+	cellSize := 60
+	borderSize := cellSize / 2
+	imgSize := 8*cellSize + 2*borderSize
+	board := image.NewRGBA(image.Rect(0, 0, imgSize, imgSize))
+
+	// Fill with dark color
+	darkColor := color.RGBA{181, 136, 99, 255}
+	draw.Draw(board, board.Bounds(), &image.Uniform{darkColor}, image.Point{}, draw.Src)
+
+	// Create a simple piece image (just a solid color for testing)
+	pieceImg := image.NewRGBA(image.Rect(0, 0, 60, 60))
+	pieceColor := color.RGBA{0, 0, 0, 255}
+	draw.Draw(pieceImg, pieceImg.Bounds(), &image.Uniform{pieceColor}, image.Point{}, draw.Src)
+
+	// Draw piece
+	destRect := image.Rect(borderSize, borderSize, borderSize+cellSize, borderSize+cellSize)
+	drawPiece(board, pieceImg, destRect, 60, 60, cellSize)
+
+	// Check that the cell still has the piece drawn (not transparent)
+	// The piece should be on top of the dark cell
+	centerColor := board.At(borderSize+cellSize/2, borderSize+cellSize/2)
+	r, g, b, _ := centerColor.RGBA()
+
+	// Should be black (piece color), not dark brown (cell color)
+	if r == 181*257 && g == 136*257 && b == 99*257 {
+		t.Error("Cell appears to be transparent - showing cell color instead of piece")
+	}
+}
+
+func TestAddCoordinates_Position(t *testing.T) {
+	cellSize := 60
+	borderSize := cellSize / 2
+	imgSize := 8*cellSize + 2*borderSize
+	board := image.NewRGBA(image.Rect(0, 0, imgSize, imgSize))
+
+	// Fill with white
+	draw.Draw(board, board.Bounds(), &image.Uniform{color.RGBA{255, 255, 255, 255}}, image.Point{}, draw.Src)
+
+	addCoordinates(board, cellSize, borderSize)
+
+	// Check that coordinates were drawn (pixels should be black)
+	// The letter 'a' should be drawn in the bottom border area
+	// We can't easily check exact position without knowing the font, but we can check
+	// that some black pixels exist in the border area
+	foundBlackPixel := false
+	for y := 8*cellSize + borderSize; y < imgSize; y++ {
+		for x := borderSize; x < borderSize+cellSize; x++ {
+			r, _, _, _ := board.At(x, y).RGBA()
+			if r == 0 {
+				foundBlackPixel = true
+				break
+			}
+		}
+		if foundBlackPixel {
+			break
+		}
+	}
+
+	if !foundBlackPixel {
+		t.Error("Expected coordinate letters to be drawn on bottom border")
+	}
+}
+
+func decodeImage(file *os.File) (image.Image, error) {
+	img, err := png.Decode(file)
+	if err != nil {
+		return nil, err
+	}
+	return img, nil
 }
