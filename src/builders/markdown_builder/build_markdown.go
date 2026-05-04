@@ -21,7 +21,7 @@ var resultMap = map[string]string{
 	"1-0": "1-0 (White wins)",
 	"0-1": "0-1 (Black wins)",
 	"1/2-1/2": "1/2-1/2 (Draw)",
-	"*": "* (Game continues / Result not specified)",
+	"*": "*",
 }
 
 func convertNAG(input string) string {
@@ -106,6 +106,15 @@ func fixCommentSpacing(text string) string {
 	// Also handle cases with dots like "8...Qc7As"
 	re6 := regexp.MustCompile(`(\d+\.\.\.[KQRBNa-h][^\s]*)([A-Z])`)
 	text = re6.ReplaceAllString(text, "$1 $2")
+	
+	// Fix 7: Text followed directly by move with dots (e.g., "after7...Bb7")
+	// "after7...Bb7" -> "after 7...Bb7"
+	re7 := regexp.MustCompile(`([a-z]+)(\d+\.\.\.[KQRBNa-h])`)
+	text = re7.ReplaceAllString(text, "$1 $2")
+	
+	// Also handle "after7.Bb7" pattern
+	re8 := regexp.MustCompile(`([a-z]+)(\d+\.[KQRBNa-h])`)
+	text = re8.ReplaceAllString(text, "$1 $2")
 	
 	return text
 }
@@ -317,7 +326,7 @@ func extractMoveText(gameText string) string {
 	// Convert NAG codes
 	movetext = convertNAG(movetext)
 	
-	// Add FEN at the beginning if present
+	// Add FEN at the beginning if present (with empty line after)
 	if fen != "" {
 		movetext = "**FEN:** `" + fen + "`\n\n" + movetext
 	}

@@ -417,8 +417,11 @@ func TestExtractMoveText_ResultBlackWins(t *testing.T) {
 func TestExtractMoveText_ResultOngoing(t *testing.T) {
 	input := "[Result \"*\"]\n\n1. e4 e5 *"
 	output := extractMoveText(input)
-	if !strings.Contains(output, "* (Game continues / Result not specified)") {
-		t.Error("Result * should be converted to ongoing game")
+	if !strings.Contains(output, "*") {
+		t.Error("Result * should remain as *")
+	}
+	if strings.Contains(output, "(Game continues") {
+		t.Error("Should not show 'Game continues' text for * result")
 	}
 }
 
@@ -581,3 +584,22 @@ func TestMain_NoDuplicateFEN(t *testing.T) {
 		t.Error("FEN value should be present in output")
 	}
 }
+
+func TestFixCommentSpacing_TextBeforeMove(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"after7...Bb7", "after 7...Bb7"},
+		{"after7.Bb7", "after 7.Bb7"},
+		{"before1.e4", "before 1.e4"},
+		{"test3...Nf6", "test 3...Nf6"},
+	}
+	for _, tt := range tests {
+		result := fixCommentSpacing(tt.input)
+		if result != tt.expected {
+			t.Errorf("fixCommentSpacing(%q) = %q, want %q", tt.input, result, tt.expected)
+		}
+	}
+}
+
