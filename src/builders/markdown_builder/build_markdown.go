@@ -116,6 +116,30 @@ func fixCommentSpacing(text string) string {
 	re8 := regexp.MustCompile(`([a-z]+)(\d+\.[KQRBNa-h])`)
 	text = re8.ReplaceAllString(text, "$1 $2")
 	
+	// Fix 8: Move with NAG symbol followed by text without space
+	// "16.Qe3±With" -> "16.Qe3± With"
+	// Also handle "Qe3±With" -> "Qe3± With"
+	re9 := regexp.MustCompile(`(\d+\.[KQRBNa-h][^\s]*[+#=!?±]*|[KQRBNa-h][1-8][^\s]*[+#=!?±]*)([A-Z])`)
+	text = re9.ReplaceAllString(text, "$1 $2")
+	
+	// Fix 9: Move with dots followed by text without space
+	// "15...O-OOf course" -> "15...O-O Of course"
+	re10 := regexp.MustCompile(`(\d+\.\.\.O-O)(O[a-z])`)
+	text = re10.ReplaceAllString(text, "$1 $2")
+	
+	// Also handle O-O without number prefix
+	re10b := regexp.MustCompile(`(O-O)(O[a-z])`)
+	text = re10b.ReplaceAllString(text, "$1 $2")
+	
+	// Also handle other moves with dots followed by text
+	re10c := regexp.MustCompile(`(\d+\.\.\.[KQRBNa-h][^\s]*)([A-Z])`)
+	text = re10c.ReplaceAllString(text, "$1 $2")
+	
+	// Fix 10: Move followed by text without space (e.g., "17.Be4I still")
+	// "17.Be4I still" -> "17.Be4 I still"
+	re11 := regexp.MustCompile(`(\d+\.[KQRBNa-h][^\s]*|[KQRBNa-h][1-8][^\s]*)([A-Z])`)
+	text = re11.ReplaceAllString(text, "$1 $2")
+	
 	return text
 }
 
@@ -330,13 +354,14 @@ func extractMoveText(gameText string) string {
 	if fen != "" {
 		movetext = "**FEN:** `" + fen + "`\n\n" + movetext
 	}
-	
+
 	lines := strings.Split(movetext, "\n")
 	var result []string
 	var currentMoveNum string
 	var currentMoveLine string
 	var pendingComments []string
 	i := 0
+	fenAdded := fen != ""
 	
 	reMove := regexp.MustCompile(`^(\d+)(\.{1,3})\s+(.+)$`)
 	reComment := regexp.MustCompile(`\{([^}]*)\}`)
@@ -344,8 +369,14 @@ func extractMoveText(gameText string) string {
 	for i < len(lines) {
 		line := strings.TrimSpace(lines[i])
 		if line == "" {
-			i++
-			continue
+			// Don't skip the empty line immediately after FEN
+			if fenAdded && i > 0 && strings.Contains(lines[i-1], "**FEN:**") {
+				fenAdded = false
+				// Keep this empty line
+			} else {
+				i++
+				continue
+			}
 		}
 		
 		m := reMove.FindStringSubmatch(line)

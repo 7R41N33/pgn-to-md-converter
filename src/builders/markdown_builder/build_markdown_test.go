@@ -603,3 +603,88 @@ func TestFixCommentSpacing_TextBeforeMove(t *testing.T) {
 	}
 }
 
+
+func TestFixCommentSpacing_MoveWithNAGAndText(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"16.Qe3±With", "16.Qe3± With"},
+		{"Qe3±With", "Qe3± With"},
+	}
+	for _, tt := range tests {
+		result := fixCommentSpacing(tt.input)
+		if result != tt.expected {
+			t.Errorf("fixCommentSpacing(%q) = %q, want %q", tt.input, result, tt.expected)
+		}
+	}
+}
+
+func TestFixCommentSpacing_MoveWithDotsAndText(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"15...O-OOf course", "15...O-O Of course"},
+		{"O-OOf course", "O-O Of course"},
+		{"O-O-OOf course", "O-O-O Of course"},
+	}
+	for _, tt := range tests {
+		result := fixCommentSpacing(tt.input)
+		if result != tt.expected {
+			t.Errorf("fixCommentSpacing(%q) = %q, want %q", tt.input, result, tt.expected)
+		}
+	}
+}
+
+func TestFixCommentSpacing_MoveFollowedByText(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"17.Be4I still", "17.Be4 I still"},
+		{"Be4I still", "Be4 I still"},
+	}
+	for _, tt := range tests {
+		result := fixCommentSpacing(tt.input)
+		if result != tt.expected {
+			t.Errorf("fixCommentSpacing(%q) = %q, want %q", tt.input, result, tt.expected)
+		}
+	}
+}
+
+func TestFENEmptyLineInOutput(t *testing.T) {
+	input := `[Event "Test"]
+[Result "*"]
+[FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"]
+
+1. e4 e5 *`
+	output := extractMoveText(input)
+	
+	// Check that output has **FEN:** line, then empty line, then moves
+	lines := strings.Split(output, "\n")
+	fenLine := -1
+	emptyLine := -1
+	movesLine := -1
+	for i, line := range lines {
+		if strings.Contains(line, "**FEN:**") {
+			fenLine = i
+		}
+		if fenLine >= 0 && i == fenLine+1 && strings.TrimSpace(line) == "" {
+			emptyLine = i
+		}
+		if emptyLine >= 0 && i == emptyLine+1 && strings.Contains(line, "1. e4") {
+			movesLine = i
+			break
+		}
+	}
+	if fenLine == -1 {
+		t.Error("FEN line not found")
+	}
+	if emptyLine == -1 {
+		t.Errorf("Empty line after FEN not found. Output:\n%s", output)
+	}
+	if movesLine == -1 {
+		t.Errorf("Moves line not found after empty line. Output:\n%s", output)
+	}
+}
