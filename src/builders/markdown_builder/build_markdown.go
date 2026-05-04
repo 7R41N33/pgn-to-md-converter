@@ -70,7 +70,7 @@ func fixCommentSpacing(text string) string {
 	// Handle "O-Ob" -> "O-O b" and "O-O-Ob" -> "O-O-O b"
 	text = strings.ReplaceAll(text, "O-Ob", "O-O b")
 	text = strings.ReplaceAll(text, "O-O-Ob", "O-O-O b")
-	// Handle "9.O- Ob6!" -> "9.O-O b6!" (space between O- and Ob)
+	// Handle "9.O- Ob6!" -> "9.O-O b6!" (space between O- and Ob")
 	text = regexp.MustCompile(`(\d+\.)?\s*O-\s+Ob`).ReplaceAllString(text, "${1}O-O b")
 	text = regexp.MustCompile(`(\d+\.)?\s*O-O-\s+Ob`).ReplaceAllString(text, "${1}O-O-O b")
 	// Handle "O-O Ob6!" -> "O-O b6!" (after previous replacements)
@@ -96,6 +96,16 @@ func fixCommentSpacing(text string) string {
 	// "Rxc1f4!" -> "Rxc1 f4!"
 	re4 := regexp.MustCompile(`([a-h]\d[+#=!?]*)([KQRBNOa-h])`)
 	text = re4.ReplaceAllString(text, "$1 $2")
+	
+	// Fix 6: Move at end of comment followed by text without space
+	// "8...Qc7As mentioned" -> "8...Qc7 As mentioned"
+	// Match patterns like "Nf3As", "Qc7As", etc. (move followed by capital letter word)
+	re5 := regexp.MustCompile(`([KQRBN][a-h][1-8][+#=!?]*|[KQRBN][a-h][a-h][+#=!?]*|[a-h][1-8][+#=!?]*)([A-Z][a-z])`)
+	text = re5.ReplaceAllString(text, "$1 $2")
+	
+	// Also handle cases with dots like "8...Qc7As"
+	re6 := regexp.MustCompile(`(\d+\.\.\.[KQRBNa-h][^\s]*)([A-Z])`)
+	text = re6.ReplaceAllString(text, "$1 $2")
 	
 	return text
 }
@@ -196,10 +206,13 @@ func buildChapterTitle(tags GameTags, chapterNum int) string {
 			whiteFromBlack := parts[0]
 			blackFull := parts[1]
 			
+			// Always use white from black field if white is "Model Games" or empty
+			// Otherwise, don't overwrite it
 			if white == "Model Games" || white == "" {
 				white = whiteFromBlack
 			}
 			
+			// Always extract black player name from blackFull
 			locationParts := strings.Split(blackFull, ", ")
 			if len(locationParts) >= 2 {
 				lastPart := locationParts[len(locationParts)-1]
@@ -207,9 +220,9 @@ func buildChapterTitle(tags GameTags, chapterNum int) string {
 					cityFromBlack := lastPart[:idx]
 					yearFromBlack := lastPart[idx+1:]
 					
-					if strings.TrimSpace(black) == "?" || strings.TrimSpace(black) == "" {
-						black = strings.Join(locationParts[:len(locationParts)-1], ", ")
-					}
+					// Always update black to just the player name
+					black = strings.Join(locationParts[:len(locationParts)-1], ", ")
+					
 					if site == "?" || site == "" {
 						site = cityFromBlack
 					}
@@ -222,6 +235,9 @@ func buildChapterTitle(tags GameTags, chapterNum int) string {
 						site = lastPart
 					}
 				}
+			} else {
+				// No comma in blackFull, use it as-is
+				black = blackFull
 			}
 		}
 	}
@@ -450,10 +466,6 @@ func main() {
 		title := buildChapterTitle(tags, chapterNum)
 
 		output += "## " + title + "\n\n"
-
-		if fen, ok := tags["FEN"]; ok {
-			output += "**FEN:** `" + fen + "`\n\n"
-		}
 
 		moves := extractMoveText(g)
 		output += moves + "\n\n"

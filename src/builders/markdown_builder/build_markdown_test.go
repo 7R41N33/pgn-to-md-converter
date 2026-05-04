@@ -499,3 +499,85 @@ func TestSplitGames_WithEmptyLines(t *testing.T) {
 		t.Errorf("Expected 2 games with empty lines, got %d", len(games))
 	}
 }
+
+func TestBuildChapterTitle_DuplicatePlayerBug(t *testing.T) {
+	tags := GameTags{
+		"White": "Nepomniachtchi, Ian",
+		"Black": "Nepomniachtchi, Ian vs. Alekseenko, Kirill, Ekaterinburg 2021",
+		"Site":  "?",
+		"Date":  "????.??.??",
+	}
+	title := buildChapterTitle(tags, 1)
+	
+	// Should NOT contain duplicate "Nepomniachtchi, Ian"
+	count := strings.Count(title, "Nepomniachtchi, Ian")
+	if count > 1 {
+		t.Errorf("Title should not contain duplicate player name. Count: %d. Title: %s", count, title)
+	}
+	
+	// Should contain both players correctly
+	if !strings.Contains(title, "Nepomniachtchi, Ian vs. Alekseenko, Kirill") {
+		t.Errorf("Title should contain 'Nepomniachtchi, Ian vs. Alekseenko, Kirill': %s", title)
+	}
+}
+
+func TestFixCommentSpacing_MoveAtEndOfComment(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"8...Qc7As mentioned", "8...Qc7 As mentioned"},
+		{"Qc7As mentioned", "Qc7 As mentioned"},
+		{"Nf3As white", "Nf3 As white"},
+		{"Bb5As black", "Bb5 As black"},
+		{"Rxc1As mentioned", "Rxc1 As mentioned"},
+	}
+	for _, tt := range tests {
+		result := fixCommentSpacing(tt.input)
+		if result != tt.expected {
+			t.Errorf("fixCommentSpacing(%q) = %q, want %q", tt.input, result, tt.expected)
+		}
+	}
+}
+
+func TestExtractMoveText_NoDuplicateFEN(t *testing.T) {
+	input := `[Event "Test"]
+[Result "*"]
+[FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"]
+
+1. e4 e5 *`
+	output := extractMoveText(input)
+	
+	// Count occurrences of FEN
+	count := strings.Count(output, "**FEN:**")
+	if count > 1 {
+		t.Errorf("FEN should appear only once, but found %d times:\n%s", count, output)
+	}
+	
+	if !strings.Contains(output, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR") {
+		t.Error("FEN value should be present in output")
+	}
+}
+
+func TestMain_NoDuplicateFEN(t *testing.T) {
+	input := `[Event "Test"]
+[White "Player A"]
+[Black "Player B"]
+[Result "*"]
+[FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"]
+
+1. e4 e5 *`
+	
+	// Test extractMoveText directly (which is where FEN is processed)
+	output := extractMoveText(input)
+	
+	// Count occurrences of FEN
+	count := strings.Count(output, "**FEN:**")
+	if count > 1 {
+		t.Errorf("FEN should appear only once in extractMoveText output, but found %d times", count)
+	}
+	
+	if !strings.Contains(output, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR") {
+		t.Error("FEN value should be present in output")
+	}
+}
