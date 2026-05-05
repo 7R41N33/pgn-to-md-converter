@@ -544,7 +544,7 @@ func main() {
 		
 	// Replace FEN strings with inline base64 images if flag is set
 	if *inlineImages {
-		moves = replaceFENWithImages(moves)
+		moves = replaceFENWithImages(moves, false)
 	}
 		
 		output += moves + "\n\n"
@@ -558,12 +558,14 @@ func main() {
 }
 
 // replaceFENWithImages finds FEN strings in text and replaces them with base64-encoded PNG images
-func replaceFENWithImages(text string) string {
+// If wrapInMarkdown is true, wraps base64 string in ![Position](data:image/png;base64,...)
+// If false, returns only the base64 string
+func replaceFENWithImages(text string, wrapInMarkdown bool) string {
 	// Pattern to match FEN strings: exactly 6 space-separated fields
 	// Field 1: piece placement (8 rows separated by /)
 	// Fields 2-6: active color, castling, en passant, halfmove, fullmove
 	fenPattern := regexp.MustCompile(`([KQRBNPkqrbnp1-8/]+)\s+([wb])\s+([KQkq-]+)\s+([a-h1-8-]+)\s+(\d+)\s+(\d+)`)
-	
+
 	return fenPattern.ReplaceAllStringFunc(text, func(match string) string {
 		// Validate and generate base64 image
 		b64, err := fenlib.GenerateDiagramBase64(match)
@@ -571,6 +573,9 @@ func replaceFENWithImages(text string) string {
 			// Return original FEN if generation fails
 			return match
 		}
-		return fmt.Sprintf("![Position](data:image/png;base64,%s)", b64)
+		if wrapInMarkdown {
+			return fmt.Sprintf("![Position](data:image/png;base64,%s)", b64)
+		}
+		return b64
 	})
 }

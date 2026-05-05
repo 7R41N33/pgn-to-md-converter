@@ -737,3 +737,60 @@ func TestFixCommentSpacing_NAGThenMove(t *testing.T) {
 		}
 	}
 }
+
+func TestReplaceFENWithImages_WrapInMarkdown(t *testing.T) {
+	// Valid FEN string
+	fen := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+	text := fen
+	result := replaceFENWithImages(text, true)
+	if !strings.Contains(result, "data:image/png;base64,") {
+		t.Error("Expected markdown image format when wrapInMarkdown is true")
+	}
+	if !strings.Contains(result, "![Position]") {
+		t.Error("Expected ![Position] prefix when wrapInMarkdown is true")
+	}
+}
+
+func TestReplaceFENWithImages_NoWrap(t *testing.T) {
+	fen := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+	text := fen
+	result := replaceFENWithImages(text, false)
+	if strings.Contains(result, "data:image/png;base64,") {
+		t.Error("Should not contain data:image/png;base64, when wrapInMarkdown is false")
+	}
+	if strings.Contains(result, "![Position]") {
+		t.Error("Should not contain ![Position] when wrapInMarkdown is false")
+	}
+	// Result should be a base64 string (non-empty, not containing the markdown wrapper)
+	if result == "" {
+		t.Error("Result should not be empty for valid FEN")
+	}
+}
+
+func TestReplaceFENWithImages_InvalidFEN(t *testing.T) {
+	// Invalid FEN should be returned as is
+	invalidFEN := "invalid_fen_string"
+	text := invalidFEN
+	result := replaceFENWithImages(text, true)
+	if result != invalidFEN {
+		t.Errorf("Invalid FEN should be returned as is, got: %s", result)
+	}
+	result2 := replaceFENWithImages(text, false)
+	if result2 != invalidFEN {
+		t.Errorf("Invalid FEN should be returned as is (no wrap), got: %s", result2)
+	}
+}
+
+func TestReplaceFENWithImages_FENInText(t *testing.T) {
+	// FEN embedded in text
+	text := "Some text before rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 and after"
+	result := replaceFENWithImages(text, false)
+	// Should not contain the markdown wrapper
+	if strings.Contains(result, "![Position]") {
+		t.Error("Should not contain ![Position] in text when wrapInMarkdown is false")
+	}
+	// The FEN part should be replaced with base64
+	if strings.Contains(result, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR") {
+		t.Error("FEN should be replaced with base64 string")
+	}
+}
