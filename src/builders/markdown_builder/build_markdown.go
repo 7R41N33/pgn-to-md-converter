@@ -544,7 +544,19 @@ reMove := regexp.MustCompile(`^(\d+)(\.{1,3})\s+(.+)$`)
 		}
 	}
 	
-	return strings.Join(result, "\n")
+	// Remove lines that match "1. -- *" or "1. *" patterns (no real moves)
+	// Also match "1. -- *" with optional spaces
+	reNoMoves := regexp.MustCompile(`^\s*\d+\.\s*--\s*\*?\s*$`)
+	reNoMoves2 := regexp.MustCompile(`^\s*\d+\.\s*\*?\s*$`)
+	filtered := make([]string, 0, len(result))
+	for _, line := range result {
+		if reNoMoves.MatchString(line) || reNoMoves2.MatchString(line) {
+			continue
+		}
+		filtered = append(filtered, line)
+	}
+	
+	return strings.Join(filtered, "\n")
 }
 
 func main() {

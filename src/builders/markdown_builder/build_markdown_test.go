@@ -811,13 +811,28 @@ Some text without moves
 	if strings.Contains(output, "--") {
 		t.Error("Should not contain '--'")
 	}
-	// Should not contain move numbers if no real moves
-	if strings.Contains(output, "1. ") && strings.Contains(output, "Doubled Pawns") {
-		// This is a list, not a move
-		// Actually, "1. Doubled Pawns" is a list item, not a move
-		// After our fix, it should not be treated as a move
-		// But we accept it as text, not formatted as a move
+}
+
+func TestExtractMoveText_RemoveOneDashStar(t *testing.T) {
+	// Direct test for "1. -- *" pattern
+	input := `[Event "Test"]
+[Result "*"]
+
+1. -- *
+Some text after`
+	output := extractMoveText(input, false)
+	// Should not contain the line "1. -- *"
+	lines := strings.Split(output, "\n")
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "1. -- *" {
+			t.Error("Should not contain '1. -- *' line")
+		}
 	}
+	// Should contain the text after
+	if !strings.Contains(output, "Some text after") {
+		t.Error("Should contain 'Some text after'")
+		}
 }
 
 func TestExtractMoveText_NoMovesOnlyResult(t *testing.T) {
