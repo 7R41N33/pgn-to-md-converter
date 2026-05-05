@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"fen-diagram/builders/fenlib"
+	"fen-diagram/src/builders/fenlib"
 )
 
 func main() {

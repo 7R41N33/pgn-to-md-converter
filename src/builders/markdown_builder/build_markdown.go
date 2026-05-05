@@ -8,7 +8,7 @@ import (
 	"regexp"
 	"strings"
 
-	"fen-diagram/builders/fenlib"
+	"fen-diagram/src/builders/fenlib"
 )
 
 var nagMap = map[string]string{
@@ -354,7 +354,7 @@ func extractYearFromDate(date string) string {
 	return ""
 }
 
-func extractMoveText(gameText string) string {
+func extractMoveText(gameText string, inlineImages bool) string {
 	// Extract FEN if present
 	fenRe := regexp.MustCompile(`\[FEN\s+"([^"]*)"\]`)
 	fenMatch := fenRe.FindStringSubmatch(gameText)
@@ -378,7 +378,13 @@ func extractMoveText(gameText string) string {
 	
 	// Add FEN at the beginning if present (with empty line after)
 	if fen != "" {
-		movetext = "**FEN:** `" + fen + "`\n\n" + movetext
+		if inlineImages {
+			// When using inline images, just add FEN without the label
+			// It will be replaced by replaceFENWithImages later
+			movetext = fen + "\n\n" + movetext
+		} else {
+			movetext = "**FEN:** `" + fen + "`\n\n" + movetext
+		}
 	}
 
 	lines := strings.Split(movetext, "\n")
@@ -387,7 +393,7 @@ func extractMoveText(gameText string) string {
 	var currentMoveLine string
 	var pendingComments []string
 	i := 0
-	fenAdded := fen != ""
+	fenAdded := fen != "" && !inlineImages // Don't set fenAdded if using inline images
 	
 	reMove := regexp.MustCompile(`^(\d+)(\.{1,3})\s+(.+)$`)
 	reComment := regexp.MustCompile(`\{([^}]*)\}`)
@@ -534,12 +540,12 @@ func main() {
 
 		output += "## " + title + "\n\n"
 
-		moves := extractMoveText(g)
+		moves := extractMoveText(g, *inlineImages)
 		
-		// Replace FEN strings with inline base64 images if flag is set
-		if *inlineImages {
-			moves = replaceFENWithImages(moves)
-		}
+	// Replace FEN strings with inline base64 images if flag is set
+	if *inlineImages {
+		moves = replaceFENWithImages(moves)
+	}
 		
 		output += moves + "\n\n"
 	}
@@ -549,9 +555,6 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Error writing file: %v\n", err)
 		os.Exit(1)
 	}
-
-	fmt.Println("Done:", *out)
-	fmt.Println("Total chapters processed:", chapterNum)
 }
 
 // replaceFENWithImages finds FEN strings in text and replaces them with base64-encoded PNG images
@@ -559,7 +562,7 @@ func replaceFENWithImages(text string) string {
 	// Pattern to match FEN strings: exactly 6 space-separated fields
 	// Field 1: piece placement (8 rows separated by /)
 	// Fields 2-6: active color, castling, en passant, halfmove, fullmove
-	fenPattern := regexp.MustCompile(`[KQRBNPkqrbnp1-8/]+\s+[wb]\s+[KQkq-]+\s+[a-h1-8-]+\s+\d+\s+\d+`)
+	fenPattern := regexp.MustCompile(`([KQRBNPkqrbnp1-8/]+)\s+([wb])\s+([KQkq-]+)\s+([a-h1-8-]+)\s+(\d+)\s+(\d+)`)
 	
 	return fenPattern.ReplaceAllStringFunc(text, func(match string) string {
 		// Validate and generate base64 image
