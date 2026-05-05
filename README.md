@@ -18,14 +18,14 @@
 ### Через бинарник (рекомендуется)
 
 ```bash
-./bin/build_markdown -src <path_to_pgn> -out <path_to_md> [-filter-white <name>] [-skip <n>] [--inline-images]
+./bin/build_markdown -src <path_to_pgn> -out <path_to_md> [-filter-white <name>] [-skip <n>] [-chapters <n>] [-chapter-numbers <list>] [--inline-images]
 ```
 
 ### Через исходный код
 
 ```bash
 cd src/builders/markdown_builder/
-go run build_markdown.go -src <path_to_pgn> -out <path_to_md> [-filter-white <name>] [-skip <n>] [--inline-images]
+go run build_markdown.go -src <path_to_pgn> -out <path_to_md> [-filter-white <name>] [-skip <n>] [-chapters <n>] [-chapter-numbers <list>] [--inline-images]
 ```
 
 ### Параметры
@@ -34,6 +34,8 @@ go run build_markdown.go -src <path_to_pgn> -out <path_to_md> [-filter-white <na
 - `-out` — Путь к выходному Markdown-файлу (обязательно)
 - `-filter-white` — Фильтр по имени белого игрока (опционально)
 - `-skip` — Пропустить N первых глав (опционально)
+- `-chapters` — Обработать только первые N глав (после skip) (опционально)
+- `-chapter-numbers` — Обработать только указанные номера глав (1‑based, через запятую) (опционально)
 - `--inline-images` — Заменять FEN-строки на data URI формат: `data:image/png;base64,...` (опционально)
 
 ### Примеры
@@ -45,6 +47,15 @@ go run build_markdown.go -src <path_to_pgn> -out <path_to_md> [-filter-white <na
 
 # Конвертация с пропуском первых 5 глав
 ./bin/build_markdown -src input.pgn -out output.md -skip 5
+
+# Обработать только первые 10 глав
+./bin/build_markdown -src input.pgn -out output.md -chapters 10
+
+# Обработать конкретные главы (1, 3, 5)
+./bin/build_markdown -src input.pgn -out output.md -chapter-numbers "1,3,5"
+
+# Комбинация: пропустить 2, взять следующие 8
+./bin/build_markdown -src input.pgn -out output.md -skip 2 -chapters 8
 
 # Фильтрация по имени игрока
 ./bin/build_markdown -src input.pgn -out output.md -filter-white "Carlsen"

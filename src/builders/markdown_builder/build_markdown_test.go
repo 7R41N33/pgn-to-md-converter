@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
 )
@@ -805,5 +806,178 @@ func TestReplaceFENWithImages_FENInText(t *testing.T) {
 	}
 	if !strings.Contains(result, "data:image/png;base64,") {
 		t.Error("FEN should be replaced with data:image/png;base64,... format")
+	}
+}
+
+func TestSplitGames_Count(t *testing.T) {
+	input := `[Event "Game 1"]
+1. e4 e5 *
+
+[Event "Game 2"]
+1. d4 d5 *
+
+[Event "Game 3"]
+1. c4 c5 *`
+	games := splitGames(input)
+	if len(games) != 3 {
+		t.Errorf("Expected 3 games, got %d", len(games))
+	}
+}
+
+func TestMain_ChapterLimit(t *testing.T) {
+	inputFile := "/tmp/test_chapters.pgn"
+	outputFile := "/tmp/test_chapters_out.md"
+
+	input := `[Event "Game 1"]
+[White "A"]
+[Black "B"]
+[Result "*"]
+1. e4 e5 *
+
+[Event "Game 2"]
+[White "C"]
+[Black "D"]
+[Result "*"]
+1. d4 d5 *
+
+[Event "Game 3"]
+[White "E"]
+[Black "F"]
+[Result "*"]
+1. c4 c5 *`
+
+	os.WriteFile(inputFile, []byte(input), 0644)
+	defer os.Remove(inputFile)
+	defer os.Remove(outputFile)
+
+	binPath := "../../../bin/build_markdown"
+	cmd := exec.Command(binPath, "-src", inputFile, "-out", outputFile, "-chapters", "2")
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to run binary: %v", err)
+	}
+
+	content, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatal("Output file not created")
+	}
+	// Should contain only 2 chapters
+	count := strings.Count(string(content), "## Chapter")
+	if count != 2 {
+		t.Errorf("Expected 2 chapters, got %d", count)
+	}
+}
+
+func TestMain_ChapterNumbers(t *testing.T) {
+	inputFile := "/tmp/test_chapter_numbers.pgn"
+	outputFile := "/tmp/test_chapter_numbers_out.md"
+
+	input := `[Event "Game 1"]
+[White "A"]
+[Black "B"]
+[Result "*"]
+1. e4 e5 *
+
+[Event "Game 2"]
+[White "C"]
+[Black "D"]
+[Result "*"]
+1. d4 d5 *
+
+[Event "Game 3"]
+[White "E"]
+[Black "F"]
+[Result "*"]
+1. c4 c5 *`
+
+	os.WriteFile(inputFile, []byte(input), 0644)
+	defer os.Remove(inputFile)
+	defer os.Remove(outputFile)
+
+	binPath := "../../../bin/build_markdown"
+	cmd := exec.Command(binPath, "-src", inputFile, "-out", outputFile, "-chapter-numbers", "1,3")
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to run binary: %v", err)
+	}
+
+	content, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatal("Output file not created")
+	}
+	// Should contain chapters 1 and 3 (skipping 2)
+	count := strings.Count(string(content), "## Chapter")
+	if count != 2 {
+		t.Errorf("Expected 2 chapters, got %d", count)
+	}
+	// Check that White vs Black is present for chapters 1 and 3
+	if !strings.Contains(string(content), "A vs. B") {
+		t.Error("Should contain 'A vs. B' for Game 1")
+	}
+	if strings.Contains(string(content), "C vs. D") {
+		t.Error("Should not contain 'C vs. D' for Game 2")
+	}
+	if !strings.Contains(string(content), "E vs. F") {
+		t.Error("Should contain 'E vs. F' for Game 3")
+	}
+}
+
+func TestMain_SkipAndChapters(t *testing.T) {
+	inputFile := "/tmp/test_skip_chapters.pgn"
+	outputFile := "/tmp/test_skip_chapters_out.md"
+
+	input := `[Event "Game 1"]
+[White "A"]
+[Black "B"]
+[Result "*"]
+1. e4 e5 *
+
+[Event "Game 2"]
+[White "C"]
+[Black "D"]
+[Result "*"]
+1. d4 d5 *
+
+[Event "Game 3"]
+[White "E"]
+[Black "F"]
+[Result "*"]
+1. c4 c5 *
+
+[Event "Game 4"]
+[White "G"]
+[Black "H"]
+[Result "*"]
+1. Nf3 Nf6 *`
+
+	os.WriteFile(inputFile, []byte(input), 0644)
+	defer os.Remove(inputFile)
+	defer os.Remove(outputFile)
+
+	binPath := "../../../bin/build_markdown"
+	cmd := exec.Command(binPath, "-src", inputFile, "-out", outputFile, "-skip", "1", "-chapters", "2")
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to run binary: %v", err)
+	}
+
+	content, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatal("Output file not created")
+	}
+	// Should skip 1 (Game 1), then take 2: so chapters Game 2 and Game 3
+	count := strings.Count(string(content), "## Chapter")
+	if count != 2 {
+		t.Errorf("Expected 2 chapters, got %d", count)
+	}
+	// Should contain Game 2 and Game 3
+	if !strings.Contains(string(content), "C vs. D") {
+		t.Error("Should contain 'C vs. D' for Game 2")
+	}
+	if !strings.Contains(string(content), "E vs. F") {
+		t.Error("Should contain 'E vs. F' for Game 3")
+	}
+	if strings.Contains(string(content), "A vs. B") {
+		t.Error("Should not contain 'A vs. B' (Game 1 was skipped)")
+	}
+	if strings.Contains(string(content), "G vs. H") {
+		t.Error("Should not contain 'G vs. H' (Game 4 not in first 2 after skip)")
 	}
 }

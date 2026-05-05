@@ -3,9 +3,9 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"fen-diagram/src/builders/fenlib"
@@ -505,15 +505,30 @@ func main() {
 	src := flag.String("src", "", "Input PGN file")
 	out := flag.String("out", "", "Output Markdown file")
 	skipChapters := flag.Int("skip", 0, "Number of chapters to skip from the beginning")
+	chaptersLimit := flag.Int("chapters", 0, "Number of chapters to process (first N chapters after skip)")
+	chapterNumbersStr := flag.String("chapter-numbers", "", "Comma-separated list of chapter numbers to process (1-based indices)")
 	inlineImages := flag.Bool("inline-images", false, "Replace FEN strings with inline base64 images")
 	flag.Parse()
 
 	if *src == "" || *out == "" {
-		fmt.Fprintf(os.Stderr, "Usage: %s -src <pgn_path> -out <md_path> [-skip <n>] [-inline-images]\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Usage: %s -src <pgn_path> -out <md_path> [-skip <n>] [-chapters <n>] [-chapter-numbers <list>] [-inline-images]\n", os.Args[0])
 		os.Exit(1)
 	}
 
-	raw, err := ioutil.ReadFile(*src)
+	// Parse chapter-numbers if provided
+	chapterNumbers := make(map[int]bool)
+	if *chapterNumbersStr != "" {
+		parts := strings.Split(*chapterNumbersStr, ",")
+		for _, p := range parts {
+			p = strings.TrimSpace(p)
+			num, err := strconv.Atoi(p)
+			if err == nil && num > 0 {
+				chapterNumbers[num] = true
+			}
+		}
+	}
+
+	raw, err := os.ReadFile(*src)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error reading file: %v\n", err)
 		os.Exit(1)
@@ -524,10 +539,23 @@ func main() {
 	output := ""
 	chapterNum := 0
 	for i, g := range games {
-		if i < *skipChapters {
-			continue
+		// If chapter-numbers is provided, filter by index (1-based)
+		if len(chapterNumbers) > 0 {
+			if !chapterNumbers[i+1] {
+				continue
+			}
+			chapterNum++
+		} else {
+			// Apply skip
+			if i < *skipChapters {
+				continue
+			}
+			chapterNum++
+			// Apply chapters limit
+			if *chaptersLimit > 0 && chapterNum > *chaptersLimit {
+				break
+			}
 		}
-		chapterNum++
 
 		tags := parseGameTags(g)
 		tags = translateTags(tags)
@@ -541,16 +569,16 @@ func main() {
 		output += "## " + title + "\n\n"
 
 		moves := extractMoveText(g, *inlineImages)
-		
-	// Replace FEN strings with inline base64 images if flag is set
-	if *inlineImages {
-		moves = replaceFENWithImages(moves, false)
-	}
-		
+
+		// Replace FEN strings with inline base64 images if flag is set
+		if *inlineImages {
+			moves = replaceFENWithImages(moves, false)
+		}
+
 		output += moves + "\n\n"
 	}
 
-	err = ioutil.WriteFile(*out, []byte(output), 0644)
+	err = os.WriteFile(*out, []byte(output), 0644)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error writing file: %v\n", err)
 		os.Exit(1)
