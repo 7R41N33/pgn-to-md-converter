@@ -48,7 +48,7 @@ func TestBuildChapterTitle_NoDate(t *testing.T) {
 
 func TestExtractMoveText_PairedMovesNoComments(t *testing.T) {
 	input := "[Result \"*\"]\n\n1. e4 e5 2. d4 d5\n*"
-	output := extractMoveText(input, false)
+	output := extractMoveText(input, false, true)
 	if !strings.Contains(output, "1. e4 e5") || !strings.Contains(output, "2. d4 d5") {
 		t.Error("Paired moves not found in output")
 	}
@@ -146,7 +146,7 @@ func TestFixCommentSpacing(t *testing.T) {
 
 func TestExtractMoveText_ResultConversion(t *testing.T) {
 	input := "[Result \"*\"]\n\n1. e4 e5 1-0"
-	output := extractMoveText(input, false)
+	output := extractMoveText(input, false, true)
 	if !strings.Contains(output, "1-0 (White wins)") {
 		t.Error("Result 1-0 not converted")
 	}
@@ -154,7 +154,7 @@ func TestExtractMoveText_ResultConversion(t *testing.T) {
 
 func TestExtractMoveText_CurlyBracesRemoved(t *testing.T) {
 	input := "[Result \"*\"]\n\n1. e4 {Comment} e5\n*"
-	output := extractMoveText(input, false)
+	output := extractMoveText(input, false, true)
 	if strings.Contains(output, "{") || strings.Contains(output, "}") {
 		t.Error("Curly braces should be removed")
 	}
@@ -326,7 +326,7 @@ func TestExtractMoveText_WithFEN(t *testing.T) {
 [FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"]
 
 1. e4 e5 *`
-	output := extractMoveText(input, false)
+	output := extractMoveText(input, false, true)
 	if !strings.Contains(output, "**FEN:**") {
 		t.Error("FEN should be extracted and formatted")
 	}
@@ -337,7 +337,7 @@ func TestExtractMoveText_WithFEN(t *testing.T) {
 
 func TestExtractMoveText_CommentWithNAG(t *testing.T) {
 	input := "[Result \"*\"]\n\n1. e4 {Good move $1} e5\n*"
-	output := extractMoveText(input, false)
+	output := extractMoveText(input, false, true)
 	if !strings.Contains(output, "±") {
 		t.Error("NAG code in comment should be converted")
 	}
@@ -381,7 +381,7 @@ func TestExtractMoveText_MultipleGames(t *testing.T) {
 		t.Fatalf("Expected 2 games, got %d", len(games))
 	}
 	for i, game := range games {
-		output := extractMoveText(game, false)
+		output := extractMoveText(game, false, true)
 		if !strings.Contains(output, "1.") {
 			t.Errorf("Game %d should have move text", i+1)
 		}
@@ -401,7 +401,7 @@ func TestConvertNAG_CombinedWithMoves(t *testing.T) {
 
 func TestExtractMoveText_ResultDraw(t *testing.T) {
 	input := "[Result \"*\"]\n\n1. e4 e5 1/2-1/2"
-	output := extractMoveText(input, false)
+	output := extractMoveText(input, false, true)
 	if !strings.Contains(output, "1/2-1/2 (Draw)") {
 		t.Error("Result 1/2-1/2 should be converted to Draw")
 	}
@@ -409,7 +409,7 @@ func TestExtractMoveText_ResultDraw(t *testing.T) {
 
 func TestExtractMoveText_ResultBlackWins(t *testing.T) {
 	input := "[Result \"*\"]\n\n1. e4 e5 0-1"
-	output := extractMoveText(input, false)
+	output := extractMoveText(input, false, true)
 	if !strings.Contains(output, "0-1 (Black wins)") {
 		t.Error("Result 0-1 should be converted to Black wins")
 	}
@@ -417,7 +417,7 @@ func TestExtractMoveText_ResultBlackWins(t *testing.T) {
 
 func TestExtractMoveText_ResultOngoing(t *testing.T) {
 	input := "[Result \"*\"]\n\n1. e4 e5 *"
-	output := extractMoveText(input, false)
+	output := extractMoveText(input, false, true)
 	if !strings.Contains(output, "*") {
 		t.Error("Result * should remain as *")
 	}
@@ -490,7 +490,7 @@ func TestFixCommentSpacing_ChessNotation(t *testing.T) {
 
 func TestExtractMoveText_EmptyMoves(t *testing.T) {
 	input := "[Result \"*\"]\n\n*"
-	output := extractMoveText(input, false)
+	output := extractMoveText(input, false, true)
 	if strings.Contains(output, "1.") {
 		t.Error("Should not have move numbers with no moves")
 	}
@@ -550,7 +550,7 @@ func TestExtractMoveText_NoDuplicateFEN(t *testing.T) {
 [FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"]
 
 1. e4 e5 *`
-	output := extractMoveText(input, false)
+	output := extractMoveText(input, false, true)
 	
 	// Count occurrences of FEN
 	count := strings.Count(output, "**FEN:**")
@@ -573,7 +573,7 @@ func TestMain_NoDuplicateFEN(t *testing.T) {
 1. e4 e5 *`
 	
 	// Test extractMoveText directly (which is where FEN is processed)
-	output := extractMoveText(input, false)
+	output := extractMoveText(input, false, true)
 	
 	// Count occurrences of FEN
 	count := strings.Count(output, "**FEN:**")
@@ -660,7 +660,7 @@ func TestFENEmptyLineInOutput(t *testing.T) {
 [FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"]
 
 1. e4 e5 *`
-	output := extractMoveText(input, false)
+	output := extractMoveText(input, false, true)
 	
 	// Check that output has **FEN:** line, then empty line, then moves
 	lines := strings.Split(output, "\n")
@@ -784,7 +784,7 @@ func TestExtractMoveText_NoMovesWithComment(t *testing.T) {
 [Result "*"]
 
 {This is a comment without any moves}`
-	output := extractMoveText(input, false)
+	output := extractMoveText(input, false, true)
 	// Should not contain "1. -- *"
 	if strings.Contains(output, "1.") {
 		t.Error("Should not contain move numbers when there are no moves")
@@ -806,7 +806,7 @@ func TestExtractMoveText_NoDoubleDash(t *testing.T) {
 Some text without moves
 1. Doubled Pawns
 2. Isolated Pawns`
-	output := extractMoveText(input, false)
+	output := extractMoveText(input, false, true)
 	// Should not contain "--"
 	if strings.Contains(output, "--") {
 		t.Error("Should not contain '--'")
@@ -820,7 +820,7 @@ func TestExtractMoveText_RemoveOneDashStar(t *testing.T) {
 
 1. -- *
 Some text after`
-	output := extractMoveText(input, false)
+	output := extractMoveText(input, false, true)
 	// Should not contain the line "1. -- *"
 	lines := strings.Split(output, "\n")
 	for _, line := range lines {
@@ -841,7 +841,7 @@ func TestExtractMoveText_NoMovesOnlyResult(t *testing.T) {
 [Result "*"]
 
 *`
-	output := extractMoveText(input, false)
+	output := extractMoveText(input, false, true)
 	// Should not contain "1. -- *"
 	if strings.Contains(output, "1.") {
 		t.Error("Should not contain move numbers when there are no moves")
@@ -858,7 +858,7 @@ Chapter 1 - Types of Weak Pawns
 1. Doubled Pawns
 2. Isolated Pawns
 3. Backward Pawns`
-	output := extractMoveText(input, false)
+	output := extractMoveText(input, false, true)
 	// Should not contain "1. -- *" or any move-like formatting
 	if strings.Contains(output, "1. -- *") {
 		t.Error("Should not contain '1. -- *'")
@@ -875,7 +875,7 @@ func TestExtractMoveText_RealMoveWithComment(t *testing.T) {
 
 1. e4 {Good move} e5
 *`
-	output := extractMoveText(input, false)
+	output := extractMoveText(input, false, true)
 	// Should contain the move
 	if !strings.Contains(output, "e4") {
 		t.Error("Should contain 'e4'")
@@ -895,7 +895,7 @@ func TestExtractMoveText_CurlyBracesRemoved_New(t *testing.T) {
 
 1. e4 {Good move} e5 {Black's reply}
 *`
-	output := extractMoveText(input, false)
+	output := extractMoveText(input, false, true)
 	// Should not contain curly braces
 	if strings.Contains(output, "{") || strings.Contains(output, "}") {
 		t.Error("Curly braces should be removed from comments")
@@ -1116,7 +1116,7 @@ func TestMain_SkipAndChapters(t *testing.T) {
 // Test formatLists: numbered lists with 2 spaces
 func TestFormatLists_Numbered(t *testing.T) {
 	text := "Categories:   1. Doubled Pawns   2. Isolated Pawns   3. Backward Pawns"
-	result := extractMoveText("{"+text+"}", false)
+	result := extractMoveText("{"+text+"}", false, true)
 	// After processing, numbered items should start with newline + 2 spaces
 	if !strings.Contains(result, "\n  1. Doubled Pawns") {
 		t.Error("Numbered list should have newline + 2 spaces before number")
@@ -1129,7 +1129,7 @@ func TestFormatLists_Numbered(t *testing.T) {
 // Test formatLists: dash lists with newline + 2 spaces
 func TestFormatLists_Dash(t *testing.T) {
 	text := "Scenarios:  - First item  - Second item"
-	result := extractMoveText("{"+text+"}", false)
+	result := extractMoveText("{"+text+"}", false, true)
 	// After processing, dash items should start with newline + 2 spaces
 	if !strings.Contains(result, "\n  - First item") {
 		t.Errorf("Expected '\n  - First item' in result, got: %q", result)
@@ -1142,7 +1142,7 @@ func TestFormatLists_Dash(t *testing.T) {
 // Test formatLists: text after list item moves to next line
 func TestFormatLists_TextAfterList(t *testing.T) {
 	text := "Categories:   1. Item1   2. Item2   Let's continue"
-	result := extractMoveText("{"+text+"}", false)
+	result := extractMoveText("{"+text+"}", false, true)
 	// After processing, text after list item should be on new line
 	if strings.Contains(result, "Item2   Let's") {
 		t.Errorf("Text after list item should be on new line, got: %q", result)
@@ -1243,5 +1243,30 @@ func TestChapterHeaders_SkipWhiteWhenSame(t *testing.T) {
 	}
 	if !strings.Contains(string(content), "### Chapter 2: Second Chapter") {
 		t.Error("Second chapter Black should be ###")
+	}
+}
+
+// Test numbered lists with flag enabled (default)
+func TestFormatLists_WithFlagEnabled(t *testing.T) {
+	// This tests the actual extractMoveText with numberedLists flag
+	// Since we can't easily pass the flag, we test the formatLists function indirectly
+	text := "Categories:   1. Doubled Pawns   2. Isolated Pawns"
+	result := extractMoveText("{"+text+"}", false, true)
+	if !strings.Contains(result, "\n  1. Doubled Pawns") {
+		t.Errorf("With flag enabled, expected newline+2spaces before number, got: %q", result)
+	}
+	if !strings.Contains(result, "\n  2. Isolated Pawns") {
+		t.Errorf("With flag enabled, expected newline+2spaces before number, got: %q", result)
+	}
+}
+
+// Test numbered lists with flag disabled
+func TestFormatLists_WithFlagDisabled(t *testing.T) {
+	text := "Categories:   1. Doubled Pawns   2. Isolated Pawns"
+	result := extractMoveText("{"+text+"}", false, false)
+	// When disabled, should NOT have newline+2spaces formatting
+	// But dash lists should still work
+	if strings.Contains(result, "\n  1. Doubled Pawns") {
+		t.Errorf("With flag disabled, should not format numbered lists, got: %q", result)
 	}
 }
