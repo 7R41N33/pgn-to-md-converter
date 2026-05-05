@@ -355,6 +355,25 @@ func extractYearFromDate(date string) string {
 }
 
 func extractMoveText(gameText string, inlineImages bool) string {
+	// formatNumberedList formats numbered lists
+	formatNumberedList := func(text string) string {
+		// Replace "  1. " with "\n1. "
+		for i := 1; i <= 10; i++ {
+			old := fmt.Sprintf("  %d. ", i)
+			new := fmt.Sprintf("\n%d. ", i)
+			text = strings.Replace(text, old, new, -1)
+			// Also handle case without leading spaces
+			old2 := fmt.Sprintf("%d. ", i)
+			new2 := fmt.Sprintf("\n%d. ", i)
+			text = strings.Replace(text, old2, new2, -1)
+			// Handle case when list item is at end of line (no space after)
+			old3 := fmt.Sprintf("%d.", i)
+			new3 := fmt.Sprintf("\n%d.", i)
+			text = strings.Replace(text, old3+"\n", new3+"\n", -1)
+		}
+		return text
+	}
+
 	// Extract FEN if present
 	fenRe := regexp.MustCompile(`\[FEN\s+"([^"]*)"\]`)
 	fenMatch := fenRe.FindStringSubmatch(gameText)
@@ -381,6 +400,8 @@ func extractMoveText(gameText string, inlineImages bool) string {
 	movetext = reComment.ReplaceAllStringFunc(movetext, func(match string) string {
 		// Extract content inside braces, remove braces
 		content := strings.TrimSpace(match[1:len(match)-1])
+		// Format numbered lists in the comment
+		content = formatNumberedList(content)
 		return content
 	})
 
