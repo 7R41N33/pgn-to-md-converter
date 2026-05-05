@@ -38,6 +38,7 @@ go run build_markdown.go -src <path_to_pgn> -out <path_to_md> [-filter-white <na
 - `-chapter-numbers` — Обработать только указанные номера глав (1‑based, через запятую) (опционально)
 - `--inline-images` — Заменять FEN-строки на data URI формат: `data:image/png;base64,...` (опционально)
 - `-numbered-lists` — Форматировать нумерованные списки (по умолчанию: true) (опционально)
+- `-dash-lists` — Форматировать списки с тире (по умолчанию: false) (опционально)
 
 ### Примеры
 
@@ -46,10 +47,13 @@ go run build_markdown.go -src <path_to_pgn> -out <path_to_md> [-filter-white <na
 ./bin/build_markdown -src input.pgn -out output.md --inline-images
 
 # Отключить форматирование нумерованных списков
-./bin/build_markdown -src input.pgn -out output.md -numbered-lists false
+./bin/build_markdown -src input.pgn -out output.md -numbered-lists=false
+
+# Включить форматирование списков с тире
+./bin/build_markdown -src input.pgn -out output.md -dash-lists=true
 
 # Комбинация параметров
-./bin/build_markdown -src input.pgn -out output.md -skip 2 -chapters 8 -numbered-lists true
+./bin/build_markdown -src input.pgn -out output.md -skip 2 -chapters 8 -numbered-lists=true -dash-lists=true
 ```
 
 ### Описание
@@ -58,7 +62,8 @@ go run build_markdown.go -src <path_to_pgn> -out <path_to_md> [-filter-white <na
 - **Выход:** Markdown-файл с отформатированными ходами
 - **FEN-строки:** По умолчанию сохраняются как текст. С флагом `--inline-images` заменяются на `data:image/png;base64,...` (без markdown-обертки)
 - **Заголовки глав:** Автоматически форматирует заголовки глав: `White` → `##`, `Black` → `###`. Если `White` повторяется, пропускает `##` и использует только `###`
-- **Нумерованные списки:** По умолчанию форматируются с новой строки и отступом. Можно отключить через `-numbered-lists false`
+- **Нумерованные списки:** По умолчанию форматируются с новой строки и отступом. Можно отключить через `-numbered-lists=false`
+- **Списки с тире:** По умолчанию не форматируются. Можно включить через `-dash-lists=true`
 - **Зависимости:** Использует пакет `fenlib` для генерации диаграмм
 
 ### Тестирование

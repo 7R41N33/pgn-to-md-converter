@@ -354,12 +354,9 @@ func extractYearFromDate(date string) string {
 	return ""
 }
 
-func extractMoveText(gameText string, inlineImages bool, numberedLists bool) string {
-	fmt.Fprintf(os.Stderr, "DEBUG extractMoveText called with numberedLists=%v\n", numberedLists)
-	// formatLists formats numbered and dash lists based on flag
-	formatLists := func(text string, numbered bool) string {
-		// Debug output
-		fmt.Fprintf(os.Stderr, "DEBUG formatLists called with numbered=%v\n", numbered)
+func extractMoveText(gameText string, inlineImages bool, numberedLists bool, dashLists bool) string {
+	// formatLists formats numbered and dash lists based on flags
+	formatLists := func(text string, numbered bool, dash bool) string {
 		if numbered {
 			// Handle numbered lists: replace "  i. " or "i. " at start with "\n  i. "
 			for i := 1; i <= 10; i++ {
@@ -378,9 +375,12 @@ func extractMoveText(gameText string, inlineImages bool, numberedLists bool) str
 			re := regexp.MustCompile(`(\n  \d+\. [^\n]*?) {2,}(\w)`)
 			text = re.ReplaceAllString(text, "$1\n$2")
 		}
-		// Handle dash lists: replace any whitespace + "- " with "\n  - "
-		reDash := regexp.MustCompile(`\s+- `)
-		text = reDash.ReplaceAllString(text, "\n  - ")
+		// Handle dash lists if flag is set
+		if dash {
+			// Handle dash lists: replace any whitespace + "- " with "\n  - "
+			reDash := regexp.MustCompile(`\s+- `)
+			text = reDash.ReplaceAllString(text, "\n  - ")
+		}
 		// Clean up: remove extra newlines but preserve single empty lines
 		for strings.Contains(text, "\n\n\n") {
 			text = strings.Replace(text, "\n\n\n", "\n\n", -1)
@@ -416,10 +416,6 @@ func extractMoveText(gameText string, inlineImages bool, numberedLists bool) str
 	movetext = reComment.ReplaceAllStringFunc(movetext, func(match string) string {
 		// Extract content inside braces, remove braces
 		content := strings.TrimSpace(match[1:len(match)-1])
-		// Handle dash lists: add newline + 2 spaces before each item
-		content = strings.Replace(content, "  - ", "\n  - ", -1)
-		content = strings.Replace(content, " - ", "\n  - ", -1)
-		content = strings.Replace(content, "\n- ", "\n  - ", -1)
 		// Clean up extra newlines
 		for strings.Contains(content, "\n\n") {
 			content = strings.Replace(content, "\n\n", "\n", -1)
@@ -427,7 +423,7 @@ func extractMoveText(gameText string, inlineImages bool, numberedLists bool) str
 		// Remove leading newline if any
 		content = strings.TrimPrefix(content, "\n")
 		// Apply formatLists to handle dash lists and optionally numbered lists
-		content = formatLists(content, numberedLists)
+		content = formatLists(content, numberedLists, dashLists)
 		return content
 	})
 
@@ -597,7 +593,7 @@ reMove := regexp.MustCompile(`^(\d+)(\.{1,3})\s+(.+)$`)
 	
 	// Apply formatLists to the final result if needed
 	resultStr := strings.Join(filtered, "\n")
-	resultStr = formatLists(resultStr, numberedLists)
+	resultStr = formatLists(resultStr, numberedLists, dashLists)
 	
 	// Add FEN at the beginning if present (with empty line after)
 	if fen != "" {
@@ -621,6 +617,7 @@ func main() {
 	chapterNumbersStr := flag.String("chapter-numbers", "", "Comma-separated list of chapter numbers to process (1-based)")
 	inlineImages := flag.Bool("inline-images", false, "Replace FEN strings with inline base64 images")
 	numberedLists := flag.Bool("numbered-lists", true, "Format numbered lists with 2-space indent (default: true)")
+	dashLists := flag.Bool("dash-lists", false, "Format dash lists with 2-space indent (default: false)")
 	flag.Parse()
 
 	if *src == "" || *out == "" {
@@ -700,7 +697,7 @@ func main() {
 		output += "## " + title + "\n\n"
 	}
 
-		moves := extractMoveText(g, *inlineImages, *numberedLists)
+		moves := extractMoveText(g, *inlineImages, *numberedLists, *dashLists)
 
 		// Replace FEN strings with inline base64 images if flag is set
 		if *inlineImages {
