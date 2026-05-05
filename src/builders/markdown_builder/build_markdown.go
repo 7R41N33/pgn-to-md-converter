@@ -638,6 +638,7 @@ func main() {
 
 	output := ""
 	chapterNum := 0
+	var prevWhite string
 	for i, g := range games {
 		// If chapter-numbers is provided, filter by index (1-based)
 		if len(chapterNumbers) > 0 {
@@ -658,15 +659,33 @@ func main() {
 		}
 
 		tags := parseGameTags(g)
+		
+		// Detect if this is a book chapter format BEFORE translation
+		rawWhite := tags["White"]
+		rawBlack := tags["Black"]
+		isBookChapter := strings.HasPrefix(strings.TrimSpace(rawBlack), "Chapter ") || 
+		                  strings.Contains(rawWhite, "Introduction") || 
+		                  strings.Contains(rawWhite, "Part") ||
+		                  strings.HasPrefix(strings.TrimSpace(rawWhite), "Chapter ")
+		
 		tags = translateTags(tags)
-
+		white := tags["White"]
 		black := tags["Black"]
-		if black == "" {
-			black = fmt.Sprintf("Партия %d", chapterNum)
-		}
-		title := buildChapterTitle(tags, chapterNum)
 
+	if isBookChapter {
+		// Book chapter format: ## White, ### Black
+		if white != prevWhite {
+			output += "## " + white + "\n\n"
+			prevWhite = white
+		}
+		if black != "" {
+			output += "### " + black + "\n\n"
+		}
+	} else {
+		// Normal game format: ## White vs. Black, City Year
+		title := buildChapterTitle(tags, chapterNum)
 		output += "## " + title + "\n\n"
+	}
 
 		moves := extractMoveText(g, *inlineImages)
 

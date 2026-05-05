@@ -1151,3 +1151,97 @@ func TestFormatLists_TextAfterList(t *testing.T) {
 		t.Errorf("Expected '\\nLet's continue' in result, got: %q", result)
 	}
 }
+
+// Test chapter headers: White as ##, Black as ###
+func TestChapterHeaders_WhiteAsH2_BlackAsH3(t *testing.T) {
+	input := `[Event "?"]
+[White "Introduction to Micro-Plans"]
+[Black "Introduction to Micro-Plans: Mastering Weak Pawns"]
+[Result "*"]
+1. -- *
+
+[Event "?"]
+[White "Chapter 1: Recognizing Weak Pawns"]
+[Black "Types of vulnerable Pawns"]
+[Result "*"]
+1. -- *`
+
+	inputFile := "/tmp/test_headers.pgn"
+	outputFile := "/tmp/test_headers_out.md"
+	os.WriteFile(inputFile, []byte(input), 0644)
+	defer os.Remove(inputFile)
+	defer os.Remove(outputFile)
+
+	binPath := "../../../bin/build_markdown"
+	cmd := exec.Command(binPath, "-src", inputFile, "-out", outputFile)
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to run binary: %v", err)
+	}
+
+	content, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatal("Output file not created")
+	}
+	
+	// Should have ## for White
+	if !strings.Contains(string(content), "## Introduction to Micro-Plans") {
+		t.Error("White should be ## header")
+	}
+	// Should have ### for Black
+	if !strings.Contains(string(content), "### Introduction to Micro-Plans: Mastering Weak Pawns") {
+		t.Error("Black should be ### header")
+	}
+	// Next chapter: White != prevWhite, so should have ##
+	if !strings.Contains(string(content), "## Chapter 1: Recognizing Weak Pawns") {
+		t.Error("White should be ## header when different from prev")
+	}
+	// Black as ###
+	if !strings.Contains(string(content), "### Types of vulnerable Pawns") {
+		t.Error("Black should be ### header")
+	}
+}
+
+// Test chapter headers: skip ## when White matches previous
+func TestChapterHeaders_SkipWhiteWhenSame(t *testing.T) {
+	input := `[Event "?"]
+[White "Same Book Title"]
+[Black "Chapter 1: First Chapter"]
+[Result "*"]
+1. -- *
+
+[Event "?"]
+[White "Same Book Title"]
+[Black "Chapter 2: Second Chapter"]
+[Result "*"]
+1. -- *`
+
+	inputFile := "/tmp/test_skip_white.pgn"
+	outputFile := "/tmp/test_skip_white_out.md"
+	os.WriteFile(inputFile, []byte(input), 0644)
+	defer os.Remove(inputFile)
+	defer os.Remove(outputFile)
+
+	binPath := "../../../bin/build_markdown"
+	cmd := exec.Command(binPath, "-src", inputFile, "-out", outputFile)
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to run binary: %v", err)
+	}
+
+	content, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatal("Output file not created")
+	}
+	
+	// Should have ## only once
+	count := strings.Count(string(content), "## Same Book Title")
+	if count != 1 {
+		t.Errorf("## Same Book Title should appear once, got %d", count)
+	}
+	// Should have ### for both chapters
+	if !strings.Contains(string(content), "### Chapter 1: First Chapter") {
+		t.Error("First chapter Black should be ###")
+	}
+	if !strings.Contains(string(content), "### Chapter 2: Second Chapter") {
+		t.Error("Second chapter Black should be ###")
+	}
+}
