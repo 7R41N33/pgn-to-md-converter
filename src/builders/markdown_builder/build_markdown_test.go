@@ -1112,3 +1112,42 @@ func TestMain_SkipAndChapters(t *testing.T) {
 		t.Error("Should not contain 'G vs. H' (Game 4 not in first 2 after skip)")
 	}
 }
+
+// Test formatLists: numbered lists with 2 spaces
+func TestFormatLists_Numbered(t *testing.T) {
+	text := "Categories:   1. Doubled Pawns   2. Isolated Pawns   3. Backward Pawns"
+	result := extractMoveText("{"+text+"}", false)
+	// After processing, numbered items should start with newline + 2 spaces
+	if !strings.Contains(result, "\n  1. Doubled Pawns") {
+		t.Error("Numbered list should have newline + 2 spaces before number")
+	}
+	if !strings.Contains(result, "\n  2. Isolated Pawns") {
+		t.Error("Numbered list should have newline + 2 spaces before number")
+	}
+}
+
+// Test formatLists: dash lists with newline + 2 spaces
+func TestFormatLists_Dash(t *testing.T) {
+	text := "Scenarios:  - First item  - Second item"
+	result := extractMoveText("{"+text+"}", false)
+	// After processing, dash items should start with newline + 2 spaces
+	if !strings.Contains(result, "\n  - First item") {
+		t.Errorf("Expected '\n  - First item' in result, got: %q", result)
+	}
+	if !strings.Contains(result, "\n  - Second item") {
+		t.Errorf("Expected '\n  - Second item' in result, got: %q", result)
+	}
+}
+
+// Test formatLists: text after list item moves to next line
+func TestFormatLists_TextAfterList(t *testing.T) {
+	text := "Categories:   1. Item1   2. Item2   Let's continue"
+	result := extractMoveText("{"+text+"}", false)
+	// After processing, text after list item should be on new line
+	if strings.Contains(result, "Item2   Let's") {
+		t.Errorf("Text after list item should be on new line, got: %q", result)
+	}
+	if !strings.Contains(result, "\nLet's continue") {
+		t.Errorf("Expected '\\nLet's continue' in result, got: %q", result)
+	}
+}

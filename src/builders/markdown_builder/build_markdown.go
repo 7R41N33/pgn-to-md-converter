@@ -358,18 +358,30 @@ func extractMoveText(gameText string, inlineImages bool) string {
 	// formatNumberedList formats numbered lists
 	// formatNumberedList formats numbered lists
 	formatNumberedList := func(text string) string {
-		// First, ensure each numbered item starts on a new line
+		// First, ensure each numbered item starts on a new line with 2 spaces
 		for i := 1; i <= 10; i++ {
 			old := fmt.Sprintf("  %d. ", i)
-			new := fmt.Sprintf("\n%d. ", i)
-			text = strings.Replace(text, old, new, -1)
+			newStr := fmt.Sprintf("\n  %d. ", i)
+			text = strings.Replace(text, old, newStr, -1)
 			old2 := fmt.Sprintf("%d. ", i)
-			new2 := fmt.Sprintf("\n%d. ", i)
-			text = strings.Replace(text, old2, new2, -1)
+			new2 := fmt.Sprintf("\n  %d. ", i)
+			text = strings.Replace(text, " "+old2, new2, -1)
 		}
 		// Then, if text follows a list item with multiple spaces, add newline
 		re := regexp.MustCompile(`(\n\d+\. [^\n]*?) {2,}(\w)`)
 		text = re.ReplaceAllString(text, "$1\n$2")
+		// Handle dash lists: replace any whitespace + "- " with "\n  - "
+		reDash := regexp.MustCompile(`\s+- `)
+		text = reDash.ReplaceAllString(text, "\n  - ")
+		// Also handle text after list items: if multiple spaces after list item, add newline
+		reAfter := regexp.MustCompile(`(\n  [\d-]+\.? [^\n]*?) {2,}(\w)`)
+		text = reAfter.ReplaceAllString(text, "$1\n$2")
+		// Clean up: remove extra newlines
+		for strings.Contains(text, "\n\n") {
+			text = strings.Replace(text, "\n\n", "\n", -1)
+		}
+		// Remove leading newline if any
+		text = strings.TrimPrefix(text, "\n")
 		return text
 	}
 
@@ -400,6 +412,16 @@ func extractMoveText(gameText string, inlineImages bool) string {
 		// Extract content inside braces, remove braces
 		content := strings.TrimSpace(match[1:len(match)-1])
 		// Format numbered lists in the comment
+		// Handle dash lists: add newline + 2 spaces before each item
+		content = strings.Replace(content, "  - ", "\n  - ", -1)
+		content = strings.Replace(content, " - ", "\n  - ", -1)
+		content = strings.Replace(content, "\n- ", "\n  - ", -1)
+		// Clean up extra newlines
+		for strings.Contains(content, "\n\n") {
+			content = strings.Replace(content, "\n\n", "\n", -1)
+		}
+		// Remove leading newline if any
+		content = strings.TrimPrefix(content, "\n")
 		content = formatNumberedList(content)
 		return content
 	})
