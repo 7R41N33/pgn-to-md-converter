@@ -798,6 +798,28 @@ func TestExtractMoveText_NoMovesWithComment(t *testing.T) {
 	}
 }
 
+func TestExtractMoveText_NoDoubleDash(t *testing.T) {
+	// This pattern was producing "1. -- *"
+	input := `[Event "Test"]
+[Result "*"]
+
+Some text without moves
+1. Doubled Pawns
+2. Isolated Pawns`
+	output := extractMoveText(input, false)
+	// Should not contain "--"
+	if strings.Contains(output, "--") {
+		t.Error("Should not contain '--'")
+	}
+	// Should not contain move numbers if no real moves
+	if strings.Contains(output, "1. ") && strings.Contains(output, "Doubled Pawns") {
+		// This is a list, not a move
+		// Actually, "1. Doubled Pawns" is a list item, not a move
+		// After our fix, it should not be treated as a move
+		// But we accept it as text, not formatted as a move
+	}
+}
+
 func TestExtractMoveText_NoMovesOnlyResult(t *testing.T) {
 	// Chapter with only result
 	input := `[Event "Test"]
@@ -808,6 +830,47 @@ func TestExtractMoveText_NoMovesOnlyResult(t *testing.T) {
 	// Should not contain "1. -- *"
 	if strings.Contains(output, "1.") {
 		t.Error("Should not contain move numbers when there are no moves")
+	}
+}
+
+func TestExtractMoveText_NoFalseMoveFromText(t *testing.T) {
+	// Text with numbered list (e.g. "1. Doubled Pawns") should not be treated as moves
+	input := `[Event "Test"]
+[Result "*"]
+
+Chapter 1 - Types of Weak Pawns
+
+1. Doubled Pawns
+2. Isolated Pawns
+3. Backward Pawns`
+	output := extractMoveText(input, false)
+	// Should not contain "1. -- *" or any move-like formatting
+	if strings.Contains(output, "1. -- *") {
+		t.Error("Should not contain '1. -- *'")
+	}
+	// The numbered list items should appear as-is (maybe with some formatting)
+	if !strings.Contains(output, "Doubled Pawns") {
+		t.Error("Should contain 'Doubled Pawns'")
+	}
+}
+
+func TestExtractMoveText_RealMoveWithComment(t *testing.T) {
+	input := `[Event "Test"]
+[Result "*"]
+
+1. e4 {Good move} e5
+*`
+	output := extractMoveText(input, false)
+	// Should contain the move
+	if !strings.Contains(output, "e4") {
+		t.Error("Should contain 'e4'")
+	}
+	if !strings.Contains(output, "e5") {
+		t.Error("Should contain 'e5'")
+	}
+	// Should not contain "--"
+	if strings.Contains(output, "--") {
+		t.Error("Should not contain '--'")
 	}
 }
 

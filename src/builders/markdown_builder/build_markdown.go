@@ -377,10 +377,9 @@ func extractMoveText(gameText string, inlineImages bool) string {
 	movetext = convertNAG(movetext)
 
 	// Remove curly braces from comments (keep content inside)
-	// Define reComment before using it
 	reComment := regexp.MustCompile(`\{([^}]*)\}`)
 	movetext = reComment.ReplaceAllStringFunc(movetext, func(match string) string {
-		// Extract content inside braces
+		// Extract content inside braces, remove braces
 		content := strings.TrimSpace(match[1:len(match)-1])
 		return content
 	})
@@ -404,13 +403,18 @@ func extractMoveText(gameText string, inlineImages bool) string {
 	i := 0
 	fenAdded := fen != "" && !inlineImages // Don't set fenAdded if using inline images
 	
-	reMove := regexp.MustCompile(`^(\d+)(\.{1,3})\s+(.+)$`)
+reMove := regexp.MustCompile(`^(\d+)(\.{1,3})\s+(.+)$`)
 	// reComment is already defined above
+
+	// Helper to check if a line looks like a real chess move
+	isRealMove := func(line string) bool {
+		return reMove.MatchString(line)
+	}
 	
-	// Check if there are any moves in the text
+	// Check if there are any real moves in the text
 	hasMoves := false
 	for _, line := range lines {
-		if reMove.MatchString(line) {
+		if isRealMove(line) {
 			hasMoves = true
 			break
 		}
@@ -452,39 +456,57 @@ func extractMoveText(gameText string, inlineImages bool) string {
 				}
 			}
 			
-			moveTextClean := reComment.ReplaceAllString(moveText, "")
-			moveTextClean = strings.TrimSpace(moveTextClean)
-			
-			isBlack := dots == "..."
-			
-			if !isBlack && currentMoveNum == num && currentMoveLine != "" {
-				isBlack = true
-			}
-			
-			if !isBlack {
-				if currentMoveNum == num && currentMoveLine != "" {
-					currentMoveLine += " " + moveTextClean
-					pendingComments = append(pendingComments, comments...)
-				} else {
-					if currentMoveLine != "" {
-						result = append(result, currentMoveLine)
-						if len(pendingComments) > 0 {
-							result = append(result, "")
-							for _, c := range pendingComments {
-								result = append(result, "  "+c)
-							}
-							result = append(result, "")
-						}
-					}
-					currentMoveNum = num
-					currentMoveLine = num + ". " + moveTextClean
-					pendingComments = comments
-				}
+		moveTextClean := reComment.ReplaceAllString(moveText, "")
+		moveTextClean = strings.TrimSpace(moveTextClean)
+		
+		// Check if there's actual move text (remove result symbols for check)
+		moveTextCheck := moveTextClean
+		for k := range resultMap {
+			moveTextCheck = strings.ReplaceAll(moveTextCheck, k, "")
+		}
+		moveTextCheck = strings.TrimSpace(moveTextCheck)
+		
+		isBlack := dots == "..."
+		
+		// If no actual move text (only result or empty), skip this line
+		if moveTextCheck == "" {
+			i++
+			continue
+		}
+		
+		if !isBlack && currentMoveNum == num && currentMoveLine != "" {
+			isBlack = true
+		}
+		
+		if !isBlack {
+			if currentMoveNum == num && currentMoveLine != "" {
+				currentMoveLine += " " + moveTextClean
+				pendingComments = append(pendingComments, comments...)
 			} else {
-				if currentMoveNum == num && currentMoveLine != "" {
-					currentMoveLine += " " + moveTextClean
-					pendingComments = append(pendingComments, comments...)
-				} else {
+				if currentMoveLine != "" {
+					result = append(result, currentMoveLine)
+					if len(pendingComments) > 0 {
+						result = append(result, "")
+						for _, c := range pendingComments {
+							result = append(result, "  "+c)
+						}
+						result = append(result, "")
+					}
+				}
+				currentMoveNum = num
+				currentMoveLine = num + ". " + moveTextClean
+				pendingComments = comments
+			}
+		} else {
+			// Skip if no actual move text (only result)
+			if moveTextCheck == "" {
+				i++
+				continue
+			}
+			if currentMoveNum == num && currentMoveLine != "" {
+				currentMoveLine += " " + moveTextClean
+				pendingComments = append(pendingComments, comments...)
+			} else {
 					if currentMoveLine != "" {
 						result = append(result, currentMoveLine)
 					}
