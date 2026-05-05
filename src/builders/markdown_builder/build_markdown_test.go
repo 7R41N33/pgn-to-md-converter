@@ -778,6 +778,59 @@ func TestReplaceFENWithImages_DataURIPrefix(t *testing.T) {
 	}
 }
 
+func TestExtractMoveText_NoMovesWithComment(t *testing.T) {
+	// Chapter with only comment, no moves
+	input := `[Event "Test"]
+[Result "*"]
+
+{This is a comment without any moves}`
+	output := extractMoveText(input, false)
+	// Should not contain "1. -- *"
+	if strings.Contains(output, "1.") {
+		t.Error("Should not contain move numbers when there are no moves")
+	}
+	// Should contain the comment without curly braces
+	if !strings.Contains(output, "This is a comment without any moves") {
+		t.Error("Should contain the comment text")
+	}
+	if strings.Contains(output, "{") || strings.Contains(output, "}") {
+		t.Error("Curly braces should be removed from comments")
+	}
+}
+
+func TestExtractMoveText_NoMovesOnlyResult(t *testing.T) {
+	// Chapter with only result
+	input := `[Event "Test"]
+[Result "*"]
+
+*`
+	output := extractMoveText(input, false)
+	// Should not contain "1. -- *"
+	if strings.Contains(output, "1.") {
+		t.Error("Should not contain move numbers when there are no moves")
+	}
+}
+
+func TestExtractMoveText_CurlyBracesRemoved_New(t *testing.T) {
+	input := `[Event "Test"]
+[Result "*"]
+
+1. e4 {Good move} e5 {Black's reply}
+*`
+	output := extractMoveText(input, false)
+	// Should not contain curly braces
+	if strings.Contains(output, "{") || strings.Contains(output, "}") {
+		t.Error("Curly braces should be removed from comments")
+	}
+	// Should contain the comment text
+	if !strings.Contains(output, "Good move") {
+		t.Error("Should contain comment text 'Good move'")
+	}
+	if !strings.Contains(output, "Black's reply") {
+		t.Error("Should contain comment text 'Black's reply'")
+	}
+}
+
 func TestReplaceFENWithImages_InvalidFEN(t *testing.T) {
 	// Invalid FEN should be returned as is
 	invalidFEN := "invalid_fen_string"

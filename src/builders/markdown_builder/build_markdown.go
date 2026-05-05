@@ -375,7 +375,16 @@ func extractMoveText(gameText string, inlineImages bool) string {
 	
 	// Convert NAG codes
 	movetext = convertNAG(movetext)
-	
+
+	// Remove curly braces from comments (keep content inside)
+	// Define reComment before using it
+	reComment := regexp.MustCompile(`\{([^}]*)\}`)
+	movetext = reComment.ReplaceAllStringFunc(movetext, func(match string) string {
+		// Extract content inside braces
+		content := strings.TrimSpace(match[1:len(match)-1])
+		return content
+	})
+
 	// Add FEN at the beginning if present (with empty line after)
 	if fen != "" {
 		if inlineImages {
@@ -396,7 +405,22 @@ func extractMoveText(gameText string, inlineImages bool) string {
 	fenAdded := fen != "" && !inlineImages // Don't set fenAdded if using inline images
 	
 	reMove := regexp.MustCompile(`^(\d+)(\.{1,3})\s+(.+)$`)
-	reComment := regexp.MustCompile(`\{([^}]*)\}`)
+	// reComment is already defined above
+	
+	// Check if there are any moves in the text
+	hasMoves := false
+	for _, line := range lines {
+		if reMove.MatchString(line) {
+			hasMoves = true
+			break
+		}
+	}
+	
+	// If no moves found, return only the text without move numbers
+	if !hasMoves {
+		// Return the text as-is (without move formatting)
+		return strings.Join(lines, "\n")
+	}
 	
 	for i < len(lines) {
 		line := strings.TrimSpace(lines[i])
