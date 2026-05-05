@@ -559,7 +559,7 @@ func main() {
 
 // replaceFENWithImages finds FEN strings in text and replaces them with base64-encoded PNG images
 // If wrapInMarkdown is true, wraps base64 string in ![Position](data:image/png;base64,...)
-// If false, returns only the base64 string
+// If false, returns data:image/png;base64,... format without markdown wrapper
 func replaceFENWithImages(text string, wrapInMarkdown bool) string {
 	// Pattern to match FEN strings: exactly 6 space-separated fields
 	// Field 1: piece placement (8 rows separated by /)
@@ -576,6 +576,6 @@ func replaceFENWithImages(text string, wrapInMarkdown bool) string {
 		if wrapInMarkdown {
 			return fmt.Sprintf("![Position](data:image/png;base64,%s)", b64)
 		}
-		return b64
+		return fmt.Sprintf("data:image/png;base64,%s", b64)
 	})
 }

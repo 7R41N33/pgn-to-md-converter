@@ -34,7 +34,7 @@ go run build_markdown.go -src <path_to_pgn> -out <path_to_md> [-filter-white <na
 - `-out` — Путь к выходному Markdown-файлу (обязательно)
 - `-filter-white` — Фильтр по имени белого игрока (опционально)
 - `-skip` — Пропустить N первых глав (опционально)
-- `--inline-images` — Заменять FEN-строки на встроенные base64-изображения (опционально)
+- `--inline-images` — Заменять FEN-строки на data URI формат: `data:image/png;base64,...` (опционально)
 
 ### Примеры
 
@@ -57,7 +57,7 @@ go run build_markdown.go -src <path_to_pgn> -out <path_to_md> [-filter-white <na
 
 - **Вход:** PGN-файл с шахматными партиями
 - **Выход:** Markdown-файл с отформатированными ходами
-- **FEN-строки:** По умолчанию сохраняются как текст. С флагом `--inline-images` заменяются на `![Position](data:image/png;base64,...)`
+- **FEN-строки:** По умолчанию сохраняются как текст. С флагом `--inline-images` заменяются на `data:image/png;base64,...` (без markdown-обертки)
 - **Зависимости:** Использует пакет `fenlib` для генерации диаграмм
 
 ### Тестирование

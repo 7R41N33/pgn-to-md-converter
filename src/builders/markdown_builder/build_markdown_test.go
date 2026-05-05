@@ -755,15 +755,25 @@ func TestReplaceFENWithImages_NoWrap(t *testing.T) {
 	fen := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 	text := fen
 	result := replaceFENWithImages(text, false)
-	if strings.Contains(result, "data:image/png;base64,") {
-		t.Error("Should not contain data:image/png;base64, when wrapInMarkdown is false")
+	if !strings.Contains(result, "data:image/png;base64,") {
+		t.Error("Should contain data:image/png;base64, when wrapInMarkdown is false")
 	}
 	if strings.Contains(result, "![Position]") {
 		t.Error("Should not contain ![Position] when wrapInMarkdown is false")
 	}
-	// Result should be a base64 string (non-empty, not containing the markdown wrapper)
+	// Result should be a base64 string with the data URI prefix
 	if result == "" {
 		t.Error("Result should not be empty for valid FEN")
+	}
+}
+
+func TestReplaceFENWithImages_DataURIPrefix(t *testing.T) {
+	fen := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+	text := fen
+	result := replaceFENWithImages(text, false)
+	expectedPrefix := "data:image/png;base64,"
+	if !strings.HasPrefix(result, expectedPrefix) {
+		t.Errorf("Expected result to start with %q, got %q", expectedPrefix, result[:min(len(result), 30)])
 	}
 }
 
@@ -789,8 +799,11 @@ func TestReplaceFENWithImages_FENInText(t *testing.T) {
 	if strings.Contains(result, "![Position]") {
 		t.Error("Should not contain ![Position] in text when wrapInMarkdown is false")
 	}
-	// The FEN part should be replaced with base64
+	// The FEN part should be replaced with base64 data URI
 	if strings.Contains(result, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR") {
 		t.Error("FEN should be replaced with base64 string")
+	}
+	if !strings.Contains(result, "data:image/png;base64,") {
+		t.Error("FEN should be replaced with data:image/png;base64,... format")
 	}
 }
