@@ -15,3 +15,5 @@ Markdowns/*
 *.backup
 *.html
 *.out
+
+src/bin/

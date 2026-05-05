@@ -47,7 +47,7 @@ func TestBuildChapterTitle_NoDate(t *testing.T) {
 
 func TestExtractMoveText_PairedMovesNoComments(t *testing.T) {
 	input := "[Result \"*\"]\n\n1. e4 e5 2. d4 d5\n*"
-	output := extractMoveText(input)
+	output := extractMoveText(input, false)
 	if !strings.Contains(output, "1. e4 e5") || !strings.Contains(output, "2. d4 d5") {
 		t.Error("Paired moves not found in output")
 	}
@@ -145,7 +145,7 @@ func TestFixCommentSpacing(t *testing.T) {
 
 func TestExtractMoveText_ResultConversion(t *testing.T) {
 	input := "[Result \"*\"]\n\n1. e4 e5 1-0"
-	output := extractMoveText(input)
+	output := extractMoveText(input, false)
 	if !strings.Contains(output, "1-0 (White wins)") {
 		t.Error("Result 1-0 not converted")
 	}
@@ -153,7 +153,7 @@ func TestExtractMoveText_ResultConversion(t *testing.T) {
 
 func TestExtractMoveText_CurlyBracesRemoved(t *testing.T) {
 	input := "[Result \"*\"]\n\n1. e4 {Comment} e5\n*"
-	output := extractMoveText(input)
+	output := extractMoveText(input, false)
 	if strings.Contains(output, "{") || strings.Contains(output, "}") {
 		t.Error("Curly braces should be removed")
 	}
@@ -325,7 +325,7 @@ func TestExtractMoveText_WithFEN(t *testing.T) {
 [FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"]
 
 1. e4 e5 *`
-	output := extractMoveText(input)
+	output := extractMoveText(input, false)
 	if !strings.Contains(output, "**FEN:**") {
 		t.Error("FEN should be extracted and formatted")
 	}
@@ -336,7 +336,7 @@ func TestExtractMoveText_WithFEN(t *testing.T) {
 
 func TestExtractMoveText_CommentWithNAG(t *testing.T) {
 	input := "[Result \"*\"]\n\n1. e4 {Good move $1} e5\n*"
-	output := extractMoveText(input)
+	output := extractMoveText(input, false)
 	if !strings.Contains(output, "±") {
 		t.Error("NAG code in comment should be converted")
 	}
@@ -380,7 +380,7 @@ func TestExtractMoveText_MultipleGames(t *testing.T) {
 		t.Fatalf("Expected 2 games, got %d", len(games))
 	}
 	for i, game := range games {
-		output := extractMoveText(game)
+		output := extractMoveText(game, false)
 		if !strings.Contains(output, "1.") {
 			t.Errorf("Game %d should have move text", i+1)
 		}
@@ -400,7 +400,7 @@ func TestConvertNAG_CombinedWithMoves(t *testing.T) {
 
 func TestExtractMoveText_ResultDraw(t *testing.T) {
 	input := "[Result \"*\"]\n\n1. e4 e5 1/2-1/2"
-	output := extractMoveText(input)
+	output := extractMoveText(input, false)
 	if !strings.Contains(output, "1/2-1/2 (Draw)") {
 		t.Error("Result 1/2-1/2 should be converted to Draw")
 	}
@@ -408,7 +408,7 @@ func TestExtractMoveText_ResultDraw(t *testing.T) {
 
 func TestExtractMoveText_ResultBlackWins(t *testing.T) {
 	input := "[Result \"*\"]\n\n1. e4 e5 0-1"
-	output := extractMoveText(input)
+	output := extractMoveText(input, false)
 	if !strings.Contains(output, "0-1 (Black wins)") {
 		t.Error("Result 0-1 should be converted to Black wins")
 	}
@@ -416,7 +416,7 @@ func TestExtractMoveText_ResultBlackWins(t *testing.T) {
 
 func TestExtractMoveText_ResultOngoing(t *testing.T) {
 	input := "[Result \"*\"]\n\n1. e4 e5 *"
-	output := extractMoveText(input)
+	output := extractMoveText(input, false)
 	if !strings.Contains(output, "*") {
 		t.Error("Result * should remain as *")
 	}
@@ -489,7 +489,7 @@ func TestFixCommentSpacing_ChessNotation(t *testing.T) {
 
 func TestExtractMoveText_EmptyMoves(t *testing.T) {
 	input := "[Result \"*\"]\n\n*"
-	output := extractMoveText(input)
+	output := extractMoveText(input, false)
 	if strings.Contains(output, "1.") {
 		t.Error("Should not have move numbers with no moves")
 	}
@@ -549,7 +549,7 @@ func TestExtractMoveText_NoDuplicateFEN(t *testing.T) {
 [FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"]
 
 1. e4 e5 *`
-	output := extractMoveText(input)
+	output := extractMoveText(input, false)
 	
 	// Count occurrences of FEN
 	count := strings.Count(output, "**FEN:**")
@@ -572,7 +572,7 @@ func TestMain_NoDuplicateFEN(t *testing.T) {
 1. e4 e5 *`
 	
 	// Test extractMoveText directly (which is where FEN is processed)
-	output := extractMoveText(input)
+	output := extractMoveText(input, false)
 	
 	// Count occurrences of FEN
 	count := strings.Count(output, "**FEN:**")
@@ -659,7 +659,7 @@ func TestFENEmptyLineInOutput(t *testing.T) {
 [FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"]
 
 1. e4 e5 *`
-	output := extractMoveText(input)
+	output := extractMoveText(input, false)
 	
 	// Check that output has **FEN:** line, then empty line, then moves
 	lines := strings.Split(output, "\n")
