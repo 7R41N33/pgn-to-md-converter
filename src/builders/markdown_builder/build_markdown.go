@@ -355,13 +355,24 @@ func extractYearFromDate(date string) string {
 }
 
 func extractMoveText(gameText string, inlineImages bool, numberedLists bool) string {
+	fmt.Fprintf(os.Stderr, "DEBUG extractMoveText called with numberedLists=%v\n", numberedLists)
 	// formatLists formats numbered and dash lists based on flag
 	formatLists := func(text string, numbered bool) string {
+		// Debug output
+		fmt.Fprintf(os.Stderr, "DEBUG formatLists called with numbered=%v\n", numbered)
 		if numbered {
-			// Handle numbered lists: replace any whitespace + "i. " with "\n  i. "
+			// Handle numbered lists: replace "  i. " or "i. " at start with "\n  i. "
 			for i := 1; i <= 10; i++ {
-				re := regexp.MustCompile(fmt.Sprintf(`\s+%d\.\s+`, i))
-				text = re.ReplaceAllString(text, fmt.Sprintf("\n  %d. ", i))
+				// Case: "  i. " (already has spaces)
+				old := fmt.Sprintf("  %d. ", i)
+				newStr := fmt.Sprintf("\n  %d. ", i)
+				text = strings.Replace(text, old, newStr, -1)
+				// Case: "i. " at start or after newline
+				old2 := fmt.Sprintf("\n%d. ", i)
+				text = strings.Replace(text, old2, newStr, -1)
+				// Case: " i. " with single space
+				old3 := fmt.Sprintf(" %d. ", i)
+				text = strings.Replace(text, old3, newStr, -1)
 			}
 			// Then, if text follows a list item with multiple spaces, add newline
 			re := regexp.MustCompile(`(\n  \d+\. [^\n]*?) {2,}(\w)`)
@@ -370,9 +381,9 @@ func extractMoveText(gameText string, inlineImages bool, numberedLists bool) str
 		// Handle dash lists: replace any whitespace + "- " with "\n  - "
 		reDash := regexp.MustCompile(`\s+- `)
 		text = reDash.ReplaceAllString(text, "\n  - ")
-		// Clean up: remove extra newlines
-		for strings.Contains(text, "\n\n") {
-			text = strings.Replace(text, "\n\n", "\n", -1)
+		// Clean up: remove extra newlines but preserve single empty lines
+		for strings.Contains(text, "\n\n\n") {
+			text = strings.Replace(text, "\n\n\n", "\n\n", -1)
 		}
 		// Remove leading newline if any
 		text = strings.TrimPrefix(text, "\n")
@@ -405,7 +416,6 @@ func extractMoveText(gameText string, inlineImages bool, numberedLists bool) str
 	movetext = reComment.ReplaceAllStringFunc(movetext, func(match string) string {
 		// Extract content inside braces, remove braces
 		content := strings.TrimSpace(match[1:len(match)-1])
-		// Format numbered lists in the comment
 		// Handle dash lists: add newline + 2 spaces before each item
 		content = strings.Replace(content, "  - ", "\n  - ", -1)
 		content = strings.Replace(content, " - ", "\n  - ", -1)
@@ -416,20 +426,13 @@ func extractMoveText(gameText string, inlineImages bool, numberedLists bool) str
 		}
 		// Remove leading newline if any
 		content = strings.TrimPrefix(content, "\n")
+		// Apply formatLists to handle dash lists and optionally numbered lists
 		content = formatLists(content, numberedLists)
 		return content
 	})
 
-	// Add FEN at the beginning if present (with empty line after)
-	if fen != "" {
-		if inlineImages {
-			// When using inline images, just add FEN without the label
-			// It will be replaced by replaceFENWithImages later
-			movetext = fen + "\n\n" + movetext
-		} else {
-			movetext = "**FEN:** `" + fen + "`\n\n" + movetext
-		}
-	}
+	// FEN will be added at the end, after formatLists is applied
+	// This prevents formatLists from breaking the FEN string
 
 	lines := strings.Split(movetext, "\n")
 	var result []string
@@ -592,7 +595,22 @@ reMove := regexp.MustCompile(`^(\d+)(\.{1,3})\s+(.+)$`)
 		filtered = append(filtered, line)
 	}
 	
-	return strings.Join(filtered, "\n")
+	// Apply formatLists to the final result if needed
+	resultStr := strings.Join(filtered, "\n")
+	resultStr = formatLists(resultStr, numberedLists)
+	
+	// Add FEN at the beginning if present (with empty line after)
+	if fen != "" {
+		if inlineImages {
+			// When using inline images, just add FEN without the label
+			// It will be replaced by replaceFENWithImages later
+			resultStr = fen + "\n\n" + resultStr
+		} else {
+			resultStr = "**FEN:** `" + fen + "`\n\n" + resultStr
+		}
+	}
+	
+	return resultStr
 }
 
 func main() {

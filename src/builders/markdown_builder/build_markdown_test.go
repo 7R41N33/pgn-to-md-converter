@@ -1270,3 +1270,69 @@ func TestFormatLists_WithFlagDisabled(t *testing.T) {
 		t.Errorf("With flag disabled, should not format numbered lists, got: %q", result)
 	}
 }
+
+// Test -numbered-lists flag via command line
+func TestMain_NumberedListsEnabled(t *testing.T) {
+	inputFile := "/tmp/test_numbered_true.pgn"
+	outputFile := "/tmp/test_numbered_true.md"
+	
+	input := `[Event "Test"]
+[White "Player A"]
+[Black "Player B"]
+[Result "*"]
+
+{There are 3 categories:
+1. First item   2. Second item   3. Third item
+Some text after.}`
+	
+	os.WriteFile(inputFile, []byte(input), 0644)
+	defer os.Remove(inputFile)
+	defer os.Remove(outputFile)
+	
+	binPath := "../../../bin/build_markdown"
+	cmd := exec.Command(binPath, "-src", inputFile, "-out", outputFile, "-numbered-lists=true")
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to run binary: %v", err)
+	}
+	
+	output, _ := os.ReadFile(outputFile)
+	outputStr := string(output)
+	
+	// With flag enabled, numbered list should be formatted with newlines and 2 spaces
+	if !strings.Contains(outputStr, "\n  1. First item") {
+		t.Errorf("With -numbered-lists=true, expected formatted numbered list, got:\n%s", outputStr)
+	}
+}
+
+func TestMain_NumberedListsDisabled(t *testing.T) {
+	inputFile := "/tmp/test_numbered_false.pgn"
+	outputFile := "/tmp/test_numbered_false.md"
+	
+	input := `[Event "Test"]
+[White "Player A"]
+[Black "Player B"]
+[Result "*"]
+
+{There are 3 categories:
+1. First item   2. Second item   3. Third item
+Some text after.}`
+	
+	os.WriteFile(inputFile, []byte(input), 0644)
+	defer os.Remove(inputFile)
+	defer os.Remove(outputFile)
+	
+	binPath := "../../../bin/build_markdown"
+	cmd := exec.Command(binPath, "-src", inputFile, "-out", outputFile, "-numbered-lists=false")
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to run binary: %v", err)
+	}
+	
+	output, _ := os.ReadFile(outputFile)
+	outputStr := string(output)
+	
+	// With flag disabled, numbered list should NOT be formatted with newlines
+	// But dash lists should still work
+	if strings.Contains(outputStr, "\n  1. First item") {
+		t.Errorf("With -numbered-lists=false, should not format numbered lists, got:\n%s", outputStr)
+	}
+}

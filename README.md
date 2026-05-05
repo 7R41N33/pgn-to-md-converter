@@ -37,31 +37,19 @@ go run build_markdown.go -src <path_to_pgn> -out <path_to_md> [-filter-white <na
 - `-chapters` — Обработать только первые N глав (после skip) (опционально)
 - `-chapter-numbers` — Обработать только указанные номера глав (1‑based, через запятую) (опционально)
 - `--inline-images` — Заменять FEN-строки на data URI формат: `data:image/png;base64,...` (опционально)
+- `-numbered-lists` — Форматировать нумерованные списки (по умолчанию: true) (опционально)
 
 ### Примеры
 
 ```bash
-# Конвертация одного файла
-./bin/build_markdown -src "PGNs/Shankland, Sam - Neo Catalan Part-1 (2023)/games.pgn" \
-                   -out "Markdowns/Shankland, Sam - Neo Catalan Part-1 (2023)/games.md"
-
-# Конвертация с пропуском первых 5 глав
-./bin/build_markdown -src input.pgn -out output.md -skip 5
-
-# Обработать только первые 10 глав
-./bin/build_markdown -src input.pgn -out output.md -chapters 10
-
-# Обработать конкретные главы (1, 3, 5)
-./bin/build_markdown -src input.pgn -out output.md -chapter-numbers "1,3,5"
-
-# Комбинация: пропустить 2, взять следующие 8
-./bin/build_markdown -src input.pgn -out output.md -skip 2 -chapters 8
-
-# Фильтрация по имени игрока
-./bin/build_markdown -src input.pgn -out output.md -filter-white "Carlsen"
-
 # Конвертация с встроенными base64 диаграммами
 ./bin/build_markdown -src input.pgn -out output.md --inline-images
+
+# Отключить форматирование нумерованных списков
+./bin/build_markdown -src input.pgn -out output.md -numbered-lists false
+
+# Комбинация параметров
+./bin/build_markdown -src input.pgn -out output.md -skip 2 -chapters 8 -numbered-lists true
 ```
 
 ### Описание
@@ -69,6 +57,8 @@ go run build_markdown.go -src <path_to_pgn> -out <path_to_md> [-filter-white <na
 - **Вход:** PGN-файл с шахматными партиями
 - **Выход:** Markdown-файл с отформатированными ходами
 - **FEN-строки:** По умолчанию сохраняются как текст. С флагом `--inline-images` заменяются на `data:image/png;base64,...` (без markdown-обертки)
+- **Заголовки глав:** Автоматически форматирует заголовки глав: `White` → `##`, `Black` → `###`. Если `White` повторяется, пропускает `##` и использует только `###`
+- **Нумерованные списки:** По умолчанию форматируются с новой строки и отступом. Можно отключить через `-numbered-lists false`
 - **Зависимости:** Использует пакет `fenlib` для генерации диаграмм
 
 ### Тестирование
