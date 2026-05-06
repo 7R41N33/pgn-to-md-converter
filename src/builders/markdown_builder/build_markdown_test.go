@@ -1309,6 +1309,47 @@ func TestChapterHeaders_SkipWhiteWhenSame(t *testing.T) {
 	}
 }
 
+// Test chapter title with "vs." in Black field
+func TestChapterTitle_VsInBlackField(t *testing.T) {
+	input := `[Event "?"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "Exam Time!"]
+[Black "Sethuraman, S.P. vs. Yuffa, D."]
+[Result "*"]
+[FEN "4r1k1/1b2q1pp/1p1p2r1/pPp1np2/P1P5/4PP1P/1B3QP1/R3RB1K w - a6 0 26"]
+[SetUp "1"]
+
+1. e4 e5 *`
+	
+	inputFile := "/tmp/test_vs_black.pgn"
+	outputFile := "/tmp/test_vs_black_out.md"
+	os.WriteFile(inputFile, []byte(input), 0644)
+	defer os.Remove(inputFile)
+	defer os.Remove(outputFile)
+	
+	binPath := "../../../bin/build_markdown"
+	cmd := exec.Command(binPath, "-src", inputFile, "-out", outputFile)
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to run binary: %v", err)
+	}
+	
+	content, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatal("Output file not created")
+	}
+	
+	// The Black field contains "vs.", so it should be used as ### header
+	if !strings.Contains(string(content), "### Sethuraman, S.P. vs. Yuffa, D.") {
+		t.Errorf("Black field with 'vs.' should be used as ### header, got:\n%s", content)
+	}
+	// White should be ## header
+	if !strings.Contains(string(content), "## Exam Time!") {
+		t.Errorf("White should be ## header, got:\n%s", content)
+	}
+}
+
 // Test numbered lists with flag enabled (default)
 func TestFormatLists_WithFlagEnabled(t *testing.T) {
 	// This tests the actual extractMoveText with numberedLists flag

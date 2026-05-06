@@ -725,7 +725,9 @@ func main() {
 		isBookChapter := strings.HasPrefix(strings.TrimSpace(rawBlack), "Chapter ") || 
 		                  strings.Contains(rawWhite, "Introduction") || 
 		                  strings.Contains(rawWhite, "Part") ||
-		                  strings.HasPrefix(strings.TrimSpace(rawWhite), "Chapter ")
+		                  strings.HasPrefix(strings.TrimSpace(rawWhite), "Chapter ") ||
+		                  strings.Contains(rawWhite, " vs. ") ||
+		                  strings.Contains(rawBlack, " vs. ")
 		
 		tags = translateTags(tags)
 		white := tags["White"]
@@ -733,12 +735,34 @@ func main() {
 
 	if isBookChapter {
 		// Book chapter format: ## White, ### Black
-		if white != prevWhite {
-			output += "## " + white + "\n\n"
-			prevWhite = white
-		}
-		if black != "" {
-			output += "### " + black + "\n\n"
+		// If "vs." is found in White or Black, use the full text from that field
+		whiteTitle := white
+		blackTitle := black
+		
+		if strings.Contains(white, " vs. ") {
+			whiteTitle = white
+			// If vs. is in White, use it as ## and don't add separate ###
+			if white != prevWhite {
+				output += "## " + whiteTitle + "\n\n"
+				prevWhite = white
+			}
+		} else if strings.Contains(black, " vs. ") {
+			// If vs. is in Black, use it as ###
+			blackTitle = black
+			if white != prevWhite {
+				output += "## " + whiteTitle + "\n\n"
+				prevWhite = white
+			}
+			output += "### " + blackTitle + "\n\n"
+		} else {
+			// Normal case: no "vs." in either field
+			if white != prevWhite {
+				output += "## " + whiteTitle + "\n\n"
+				prevWhite = white
+			}
+			if blackTitle != "" {
+				output += "### " + blackTitle + "\n\n"
+			}
 		}
 	} else {
 		// Normal game format: ## White vs. Black, City Year
