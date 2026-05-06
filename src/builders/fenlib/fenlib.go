@@ -15,7 +15,9 @@ import (
 )
 
 const (
-	pieceOrder = "KQRBNPkqrbnp"
+	// Sprite order: K, Q, B, N, R, P for white (row 0), k, q, b, n, r, p for black (row 1)
+	// Each piece is 213x213 pixels in a 1280x427 sprite (6 pieces x 2 rows)
+	pieceOrder = "KQBNRPkqbnrp"
 	spritePath = "src/images/Chess_Pieces_Sprite.svg.png"
 )
 

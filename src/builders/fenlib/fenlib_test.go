@@ -27,7 +27,7 @@ func TestGenerateBoard_StandardStart(t *testing.T) {
 
 func TestPieceOrder(t *testing.T) {
 	// Test that pieceOrder constant matches the expected order
-	expected := "KQRBNPkqrbnp"
+	expected := "KQBNRPkqbnrp"
 	if pieceOrder != expected {
 		t.Errorf("pieceOrder = %q, want %q", pieceOrder, expected)
 	}
@@ -117,13 +117,33 @@ func TestFENRanks_TopBottom(t *testing.T) {
 
 func TestFENSpriteOrder(t *testing.T) {
 	// Test that the sprite has the correct piece order
-	// pieceOrder = "KQRBNPkqrbnp"
-	// White pieces (indices 0-5): K, Q, R, B, N, P
-	// Black pieces (indices 6-11): k, q, r, b, n, p
+	// pieceOrder = "KQBNRPkqbnrp"
+	// White pieces (indices 0-5): K, Q, B, N, R, P
+	// Black pieces (indices 6-11): k, q, b, n, r, p
 	
 	// Verify that 'K' (white king) maps to index 0
 	if idx := strings.IndexRune(pieceOrder, 'K'); idx != 0 {
 		t.Errorf("'K' should be at index 0, got %d", idx)
+	}
+	
+	// Verify that 'Q' (white queen) maps to index 1
+	if idx := strings.IndexRune(pieceOrder, 'Q'); idx != 1 {
+		t.Errorf("'Q' should be at index 1, got %d", idx)
+	}
+	
+	// Verify that 'B' (white bishop) maps to index 2
+	if idx := strings.IndexRune(pieceOrder, 'B'); idx != 2 {
+		t.Errorf("'B' should be at index 2, got %d", idx)
+	}
+	
+	// Verify that 'N' (white knight) maps to index 3
+	if idx := strings.IndexRune(pieceOrder, 'N'); idx != 3 {
+		t.Errorf("'N' should be at index 3, got %d", idx)
+	}
+	
+	// Verify that 'R' (white rook) maps to index 4
+	if idx := strings.IndexRune(pieceOrder, 'R'); idx != 4 {
+		t.Errorf("'R' should be at index 4, got %d", idx)
 	}
 	
 	// Verify that 'P' (white pawn) maps to index 5
@@ -134,6 +154,26 @@ func TestFENSpriteOrder(t *testing.T) {
 	// Verify that 'k' (black king) maps to index 6
 	if idx := strings.IndexRune(pieceOrder, 'k'); idx != 6 {
 		t.Errorf("'k' should be at index 6, got %d", idx)
+	}
+	
+	// Verify that 'q' (black queen) maps to index 7
+	if idx := strings.IndexRune(pieceOrder, 'q'); idx != 7 {
+		t.Errorf("'q' should be at index 7, got %d", idx)
+	}
+	
+	// Verify that 'b' (black bishop) maps to index 8
+	if idx := strings.IndexRune(pieceOrder, 'b'); idx != 8 {
+		t.Errorf("'b' should be at index 8, got %d", idx)
+	}
+	
+	// Verify that 'n' (black knight) maps to index 9
+	if idx := strings.IndexRune(pieceOrder, 'n'); idx != 9 {
+		t.Errorf("'n' should be at index 9, got %d", idx)
+	}
+	
+	// Verify that 'r' (black rook) maps to index 10
+	if idx := strings.IndexRune(pieceOrder, 'r'); idx != 10 {
+		t.Errorf("'r' should be at index 10, got %d", idx)
 	}
 	
 	// Verify that 'p' (black pawn) maps to index 11
