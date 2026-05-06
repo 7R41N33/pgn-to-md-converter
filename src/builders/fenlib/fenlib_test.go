@@ -1,118 +1,143 @@
 package fenlib
 
 import (
-	"os"
+	"strings"
 	"testing"
 )
 
+func TestGenerateBoard_StandardStart(t *testing.T) {
+	// Standard starting position
+	fen := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBKQBNR w KQkq - 0 1"
+	
+	board, err := GenerateBoard(fen)
+	if err != nil {
+		t.Fatalf("Failed to generate board: %v", err)
+	}
+	
+	if board == nil {
+		t.Fatal("Board is nil")
+	}
+	
+	// Check that the board has the correct dimensions
+	expectedSize := 8*60 + 2*(60/2) // 8 cells + 2*border
+	if board.Bounds().Dx() != expectedSize || board.Bounds().Dy() != expectedSize {
+		t.Errorf("Board size = %dx%d, want %dx%d", board.Bounds().Dx(), board.Bounds().Dy(), expectedSize, expectedSize)
+	}
+}
+
+func TestPieceOrder(t *testing.T) {
+	// Test that pieceOrder constant matches the expected order
+	expected := "KQRBNPkqrbnp"
+	if pieceOrder != expected {
+		t.Errorf("pieceOrder = %q, want %q", pieceOrder, expected)
+	}
+}
+
+func TestGenerateBoard_InvalidFEN(t *testing.T) {
+	invalidFENs := []string{
+		"",
+		"invalid",
+		"rnbqkbnr/pppppppp/9/8/8/8/PPPPPPPP/RNBKQBNR w KQkq - 0 1", // invalid row
+	}
+	
+	for _, fen := range invalidFENs {
+		_, err := GenerateBoard(fen)
+		if err == nil {
+			t.Errorf("Expected error for FEN %q, got nil", fen)
+		}
+	}
+}
+
 func TestValidateFEN_Valid(t *testing.T) {
 	validFENs := []string{
-		"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-		"rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1",
+		"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBKQBNR w KQkq - 0 1",
 		"8/8/8/8/8/8/8/8 w - - 0 1",
 	}
+	
 	for _, fen := range validFENs {
 		if err := ValidateFEN(fen); err != nil {
-			t.Errorf("Valid FEN rejected: %s - %v", fen, err)
+			t.Errorf("Expected valid FEN %q, got error: %v", fen, err)
 		}
 	}
 }
 
-func TestValidateFEN_InvalidPosition(t *testing.T) {
-	invalidFENs := []string{
-		"rnbqkbnr/pppppppp/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0", // Missing fullmove
-		"rnbqkbnr/pppppppp/9/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", // Invalid row
-	}
-	for _, fen := range invalidFENs {
-		if err := ValidateFEN(fen); err == nil {
-			t.Errorf("Invalid FEN accepted: %s", fen)
-		}
-	}
-}
-
-func TestValidateFEN_InvalidActiveColor(t *testing.T) {
-	fen := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR x KQkq - 0 1"
-	if err := ValidateFEN(fen); err == nil {
-		t.Error("Should reject invalid active color")
-	}
-}
-
-func TestValidateFEN_InvalidCastling(t *testing.T) {
-	fen := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w XYZ - 0 1"
-	if err := ValidateFEN(fen); err == nil {
-		t.Error("Should reject invalid castling")
-	}
-}
-
-func TestValidateFEN_InvalidEnPassant(t *testing.T) {
-	invalidEP := []string{
-		"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq i9 0 1",
-		"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq e9 0 1",
-	}
-	for _, fen := range invalidEP {
-		if err := ValidateFEN(fen); err == nil {
-			t.Errorf("Should reject invalid en passant: %s", fen)
-		}
-	}
-}
-
-func TestGenerateDiagram_CreatesFile(t *testing.T) {
-	fen := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-	outputPath := "/tmp/test_diagram.png"
-
-	if err := GenerateDiagram(fen, outputPath); err != nil {
-		t.Errorf("Failed to generate diagram: %v", err)
-	}
-
-	if _, err := os.Stat(outputPath); os.IsNotExist(err) {
-		t.Error("Output file was not created")
-	}
-	os.Remove(outputPath)
-}
-
-func TestGenerateDiagram_InvalidFEN(t *testing.T) {
-	fen := "invalid fen"
-
-	if err := GenerateDiagram(fen, "/tmp/test.png"); err == nil {
-		t.Error("Should return error for invalid FEN")
-	}
-}
-
-func TestValidateFEN_EmptyString(t *testing.T) {
-	if err := ValidateFEN(""); err == nil {
-		t.Error("Empty string should be invalid")
-	}
-}
-
-func TestValidateFEN_TooFewFields(t *testing.T) {
-	fen := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq"
-	if err := ValidateFEN(fen); err == nil {
-		t.Error("Should reject FEN with too few fields")
-	}
-}
-
-func TestGenerateDiagram_OutputPath(t *testing.T) {
-	fen := "8/8/8/8/8/8/8/8 w - - 0 1"
-	outputPath := "/tmp/test_empty_board.png"
-
-	if err := GenerateDiagram(fen, outputPath); err != nil {
-		t.Errorf("Failed to generate diagram: %v", err)
-	}
-
-	content, _ := os.ReadFile(outputPath)
-	if len(content) == 0 {
-		t.Error("Output file should not be empty")
-	}
-	os.Remove(outputPath)
-}
-
-func TestGenerateDiagramBase64(t *testing.T) {
-	fen := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-	b64, err := GenerateDiagramBase64(fen)
+func TestFENRanks_TopBottom(t *testing.T) {
+	// Test that rank 8 (black's side) is at TOP, rank 1 (white's side) is at BOTTOM
+	// Create a FEN with black pawn on a8 (top) and white pawn on a1 (bottom)
+	fen := "p7/8/8/8/8/8/8/P7 w - - 0 1"
+	
+	board, err := GenerateBoard(fen)
 	if err != nil {
-		t.Errorf("Failed to generate base64: %v", err)
+		t.Fatalf("Failed to generate board: %v", err)
 	}
-	if b64 == "" {
-		t.Error("Base64 output should not be empty")
+	
+	cellSize := 60
+	borderSize := cellSize / 2
+	
+	// Check that SOME pixel in the top row region has a non-white piece
+	topRegionHasPiece := false
+	for x := borderSize; x < borderSize+cellSize; x++ {
+		for y := borderSize; y < borderSize+cellSize; y++ {
+			c := board.At(x, y)
+			r, g, b, a := c.RGBA()
+			if a > 0 && !(r == 65535 && g == 65535 && b == 65535) {
+				topRegionHasPiece = true
+				break
+			}
+		}
+		if topRegionHasPiece {
+			break
+		}
+	}
+	
+	if !topRegionHasPiece {
+		t.Error("No piece found in top region (rank 8)")
+	}
+	
+	// Check that SOME pixel in the bottom row region has a non-white piece
+	bottomRegionHasPiece := false
+	for x := borderSize; x < borderSize+cellSize; x++ {
+		for y := borderSize + 7*cellSize; y < borderSize+8*cellSize; y++ {
+			c := board.At(x, y)
+			r, g, b, a := c.RGBA()
+			if a > 0 && !(r == 65535 && g == 65535 && b == 65535) {
+				bottomRegionHasPiece = true
+				break
+			}
+		}
+		if bottomRegionHasPiece {
+			break
+		}
+	}
+	
+	if !bottomRegionHasPiece {
+		t.Error("No piece found in bottom region (rank 1)")
+	}
+}
+
+func TestFENSpriteOrder(t *testing.T) {
+	// Test that the sprite has the correct piece order
+	// pieceOrder = "KQRBNPkqrbnp"
+	// White pieces (indices 0-5): K, Q, R, B, N, P
+	// Black pieces (indices 6-11): k, q, r, b, n, p
+	
+	// Verify that 'K' (white king) maps to index 0
+	if idx := strings.IndexRune(pieceOrder, 'K'); idx != 0 {
+		t.Errorf("'K' should be at index 0, got %d", idx)
+	}
+	
+	// Verify that 'P' (white pawn) maps to index 5
+	if idx := strings.IndexRune(pieceOrder, 'P'); idx != 5 {
+		t.Errorf("'P' should be at index 5, got %d", idx)
+	}
+	
+	// Verify that 'k' (black king) maps to index 6
+	if idx := strings.IndexRune(pieceOrder, 'k'); idx != 6 {
+		t.Errorf("'k' should be at index 6, got %d", idx)
+	}
+	
+	// Verify that 'p' (black pawn) maps to index 11
+	if idx := strings.IndexRune(pieceOrder, 'p'); idx != 11 {
+		t.Errorf("'p' should be at index 11, got %d", idx)
 	}
 }

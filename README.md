@@ -28,6 +28,55 @@ cd src/builders/markdown_builder/
 go run build_markdown.go -src <path_to_pgn> -out <path_to_md> [-filter-white <name>] [-skip <n>] [-chapters <n>] [-chapter-numbers <list>] [--inline-images]
 ```
 
+## Использование fen_builder
+
+Скрипт `fen_builder` генерирует изображения шахматных позиций из FEN-строк. Поддерживает сохранение в PNG-файл или вывод в формате base64.
+
+### Через бинарник (рекомендуется)
+
+```bash
+./bin/fen_builder <fen_string> [output_path] [--base64]
+```
+
+### Через исходный код
+
+```bash
+cd src/builders/fen_builder/
+go run fen_to_diagram.go <fen_string> [output_path] [--base64]
+```
+
+### Параметры
+
+- `<fen_string>` — FEN-строка (обязательно)
+- `[output_path]` — Путь для сохранения PNG-файла (по умолчанию: `tmp/images/diagram.png`)
+- `--base64` — Вывод изображения в формате base64 в stdout вместо сохранения в файл (опционально)
+
+### Примеры
+
+```bash
+# Генерация диаграммы и сохранение в файл
+./bin/fen_builder "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBKQBNR w KQkq - 0 1" output.png
+
+# Генерация и вывод в base64 (для встраивания в HTML/Markdown)
+./bin/fen_builder "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBKQBNR w KQkq - 0 1" --base64
+```
+
+### Описание
+
+- **Вход:** FEN-строка (6 полей: позиция, активный цвет, рокировка, en passant, полуход, полный ход)
+- **Выход:** PNG-изображение 540x540 пикселей (8 клеток по 60px + границы по 30px)
+- **Формат FEN:** Начинается с 8-го ранга (ближайшего к чёрным), заканчивается 1-м рангом (ближайшим к белым)
+- **Цвета клеток:** Светлые (#F0D9B5) и тёмные (#B58863)
+- **Фигуры:** Заглавные буквы — белые, строчные — чёрные
+- **Зависимости:** Использует спрайт `src/images/Chess_Pieces_Sprite.svg.png`
+
+### Тестирование
+
+```bash
+cd src/builders/fenlib/
+go test -v
+```
+
 ### Параметры
 
 - `-src` — Путь к входному PGN-файлу (обязательно)
