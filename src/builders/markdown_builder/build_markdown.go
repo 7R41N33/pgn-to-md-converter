@@ -638,7 +638,12 @@ reMove := regexp.MustCompile(`^(\d+)(\.{1,3})\s+(.+)$`)
 	// Escape dots in move numbers to prevent Markdown list interpretation
 	// Process the string to add backslash before dots that follow move numbers
 	resultStr = escapeMoveDots(resultStr)
-	
+
+	// Remove bracket placeholders like @@StartBracket@@__TEXT__@@EndBracket@@
+	// Handle optional space after "End" to catch cases where fixCommentSpacing added a space
+	reBracket := regexp.MustCompile(`@@StartBracket@@([^@]+)@@End\s*Bracket@@`)
+	resultStr = reBracket.ReplaceAllString(resultStr, `$1`)
+
 	// Add FEN at the beginning if present (with empty line after)
 	if fen != "" {
 		if inlineImages {

@@ -881,6 +881,32 @@ func TestExtractMoveText_EscapedDotInMoveNumbers(t *testing.T) {
 	}
 }
 
+func TestExtractMoveText_RemoveBracketPlaceholders(t *testing.T) {
+	// Test that @@StartBracket@@...@@EndBracket@@ placeholders are removed
+	input := "[Result \"*\"]\n\n1. e4 @@StartBracket@@Nf3@@EndBracket@@ e5\n*"
+	output := extractMoveText(input, false, true, false)
+	// Should NOT contain the bracket placeholders
+	if strings.Contains(output, "@@StartBracket@@") {
+		t.Errorf("Should not contain '@@StartBracket@@', got:\n%s", output)
+	}
+	if strings.Contains(output, "@@EndBracket@@") {
+		t.Errorf("Should not contain '@@EndBracket@@', got:\n%s", output)
+	}
+	// Should contain the text that was between the brackets
+	if !strings.Contains(output, "Nf3") {
+		t.Errorf("Should contain 'Nf3' text, got:\n%s", output)
+	}
+	// Test with multiple bracket placeholders
+	input2 := "[Result \"*\"]\n\n1. e4 @@StartBracket@@Nf3@@EndBracket@@ 2. d4 @@StartBracket@@Bb5@@EndBracket@@\n*"
+	output2 := extractMoveText(input2, false, true, false)
+	if strings.Contains(output2, "@@StartBracket@@") || strings.Contains(output2, "@@EndBracket@@") {
+		t.Errorf("Should not contain bracket placeholders, got:\n%s", output2)
+	}
+	if !strings.Contains(output2, "Nf3") || !strings.Contains(output2, "Bb5") {
+		t.Errorf("Should contain 'Nf3' and 'Bb5', got:\n%s", output2)
+	}
+}
+
 func TestExtractMoveText_NoFalseMoveFromText(t *testing.T) {
 	// Text with numbered list (e.g. "1. Doubled Pawns") should not be treated as moves
 	input := `[Event "Test"]
