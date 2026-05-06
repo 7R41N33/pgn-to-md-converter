@@ -354,6 +354,46 @@ func extractYearFromDate(date string) string {
 	return ""
 }
 
+// escapeMoveDots adds a backslash before dots that follow move numbers
+// to prevent Markdown from interpreting them as numbered lists
+func escapeMoveDots(s string) string {
+	result := []byte(s)
+	// Find all positions where we have digit(s) followed by "." and space
+	// Then add a backslash before the dot if not already present
+	i := 0
+	for i < len(result) {
+		// Check if current char is a digit
+		if result[i] >= '0' && result[i] <= '9' {
+			// Find the end of the digit sequence
+			j := i
+			for j < len(result) && result[j] >= '0' && result[j] <= '9' {
+				j++
+			}
+			// Check if followed by "." and space
+			if j < len(result) && result[j] == '.' {
+				// Check if the dot is already escaped
+				if i > 0 && result[i-1] == '\\' {
+					// Already escaped, skip
+					i = j + 1
+					continue
+				}
+				// Need to insert a backslash before the dot
+				newResult := make([]byte, len(result)+1)
+				copy(newResult[:j], result[:j])
+				newResult[j] = '\\'
+				copy(newResult[j+1:], result[j:])
+				result = newResult
+				i = j + 2 // Skip past the inserted backslash and the dot
+			} else {
+				i = j
+			}
+		} else {
+			i++
+		}
+	}
+	return string(result)
+}
+
 func extractMoveText(gameText string, inlineImages bool, numberedLists bool, dashLists bool) string {
 	// formatLists formats numbered and dash lists based on flags
 	formatLists := func(text string, numbered bool, dash bool) string {
@@ -426,7 +466,7 @@ func extractMoveText(gameText string, inlineImages bool, numberedLists bool, das
 		content = formatLists(content, numberedLists, dashLists)
 		return content
 	})
-
+  
 	// FEN will be added at the end, after formatLists is applied
 	// This prevents formatLists from breaking the FEN string
 
@@ -546,7 +586,7 @@ reMove := regexp.MustCompile(`^(\d+)(\.{1,3})\s+(.+)$`)
 						result = append(result, currentMoveLine)
 					}
 					currentMoveNum = num
-					currentMoveLine = num + ". " + moveTextClean
+			currentMoveLine = num + ". " + moveTextClean
 					pendingComments = comments
 				}
 			}
@@ -594,6 +634,10 @@ reMove := regexp.MustCompile(`^(\d+)(\.{1,3})\s+(.+)$`)
 	// Apply formatLists to the final result if needed
 	resultStr := strings.Join(filtered, "\n")
 	resultStr = formatLists(resultStr, numberedLists, dashLists)
+	
+	// Escape dots in move numbers to prevent Markdown list interpretation
+	// Process the string to add backslash before dots that follow move numbers
+	resultStr = escapeMoveDots(resultStr)
 	
 	// Add FEN at the beginning if present (with empty line after)
 	if fen != "" {

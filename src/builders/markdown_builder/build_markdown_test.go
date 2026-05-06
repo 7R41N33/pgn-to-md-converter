@@ -49,8 +49,9 @@ func TestBuildChapterTitle_NoDate(t *testing.T) {
 func TestExtractMoveText_PairedMovesNoComments(t *testing.T) {
 	input := "[Result \"*\"]\n\n1. e4 e5 2. d4 d5\n*"
 	output := extractMoveText(input, false, true, false)
-	if !strings.Contains(output, "1. e4 e5") || !strings.Contains(output, "2. d4 d5") {
-		t.Error("Paired moves not found in output")
+	// Check for escaped dots (backslash-dot-space pattern)
+	if !strings.Contains(output, `1\. e4`) || !strings.Contains(output, `2\. d4`) {
+		t.Errorf("Paired moves not found in output. Got:\n%s", output)
 	}
 }
 
@@ -338,6 +339,9 @@ func TestExtractMoveText_WithFEN(t *testing.T) {
 func TestExtractMoveText_CommentWithNAG(t *testing.T) {
 	input := "[Result \"*\"]\n\n1. e4 {Good move $1} e5\n*"
 	output := extractMoveText(input, false, true, false)
+	if !strings.Contains(output, `1\. e4`) {
+		t.Errorf("Should contain '1\\. e4' with escaped dot, got:\n%s", output)
+	}
 	if !strings.Contains(output, "±") {
 		t.Error("NAG code in comment should be converted")
 	}
@@ -382,7 +386,7 @@ func TestExtractMoveText_MultipleGames(t *testing.T) {
 	}
 	for i, game := range games {
 		output := extractMoveText(game, false, true, false)
-		if !strings.Contains(output, "1.") {
+		if !strings.Contains(output, `1\.`) {
 			t.Errorf("Game %d should have move text", i+1)
 		}
 	}
@@ -674,7 +678,7 @@ func TestFENEmptyLineInOutput(t *testing.T) {
 		if fenLine >= 0 && i == fenLine+1 && strings.TrimSpace(line) == "" {
 			emptyLine = i
 		}
-		if emptyLine >= 0 && i == emptyLine+1 && strings.Contains(line, "1. e4") {
+		if emptyLine >= 0 && i == emptyLine+1 && strings.Contains(line, `1\. e4`) {
 			movesLine = i
 			break
 		}
@@ -848,6 +852,35 @@ func TestExtractMoveText_NoMovesOnlyResult(t *testing.T) {
 	}
 }
 
+func TestExtractMoveText_EscapedDotInMoveNumbers(t *testing.T) {
+	// Test that move numbers use escaped dots to avoid Markdown list interpretation
+	input := "[Result \"*\"]\n\n1. e4 e5 2. d4 d5 3. Nf3 Nc6\n*"
+	output := extractMoveText(input, false, true, false)
+	
+	// Should contain escaped dots
+	if !strings.Contains(output, "1\\. e4") {
+		t.Errorf("Expected '1\\. e4' in output, got:\n%s", output)
+	}
+	if !strings.Contains(output, "2\\. d4") {
+		t.Errorf("Expected '2\\. d4' in output, got:\n%s", output)
+	}
+	if !strings.Contains(output, "3\\. Nf3") {
+		t.Errorf("Expected '3\\. Nf3' in output, got:\n%s", output)
+	}
+	
+	// Should NOT contain unescaped move numbers (which would be interpreted as lists)
+	// Note: We check that the pattern "N. " (where N is a digit) doesn't appear without backslash
+	lines := strings.Split(output, "\n")
+	for _, line := range lines {
+		// Check if line starts with a move number pattern without escape
+		if len(line) > 2 && line[0] >= '0' && line[0] <= '9' {
+			if !strings.Contains(line, "\\.") && strings.Contains(line, ". ") {
+				t.Errorf("Found unescaped dot in move number: %s", line)
+			}
+		}
+	}
+}
+
 func TestExtractMoveText_NoFalseMoveFromText(t *testing.T) {
 	// Text with numbered list (e.g. "1. Doubled Pawns") should not be treated as moves
 	input := `[Event "Test"]
@@ -876,9 +909,9 @@ func TestExtractMoveText_RealMoveWithComment(t *testing.T) {
 1. e4 {Good move} e5
 *`
 	output := extractMoveText(input, false, true, false)
-	// Should contain the move
-	if !strings.Contains(output, "e4") {
-		t.Error("Should contain 'e4'")
+	// Should contain the move with escaped dot
+	if !strings.Contains(output, `1\. e4`) {
+		t.Errorf("Should contain '1\\. e4' in output, got:\n%s", output)
 	}
 	if !strings.Contains(output, "e5") {
 		t.Error("Should contain 'e5'")
@@ -899,6 +932,10 @@ func TestExtractMoveText_CurlyBracesRemoved_New(t *testing.T) {
 	// Should not contain curly braces
 	if strings.Contains(output, "{") || strings.Contains(output, "}") {
 		t.Error("Curly braces should be removed from comments")
+	}
+	// Should contain the move with escaped dot
+	if !strings.Contains(output, `1\. e4`) {
+		t.Errorf("Should contain '1\\. e4' in output, got:\n%s", output)
 	}
 	// Should contain the comment text
 	if !strings.Contains(output, "Good move") {
