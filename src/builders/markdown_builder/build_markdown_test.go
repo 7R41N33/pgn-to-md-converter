@@ -1522,3 +1522,440 @@ Some text after.}`
 		t.Errorf("With -dash-lists=false, should not format dash lists, got:\n%s", outputStr)
 	}
 }
+
+// Test exam flag: filter by exact White match
+func TestMain_ExamFilterByWhite(t *testing.T) {
+	inputFile := "/tmp/test_exam_white.pgn"
+	outputFile := "/tmp/test_exam_white_out.md"
+
+	input := `[Event "?"]
+[White "Exam Time!"]
+[Black "Mix Exercises"]
+[Result "*"]
+1. -- *
+
+[Event "?"]
+[White "Chapter 1: Intro"]
+[Black "Something"]
+[Result "*"]
+1. -- *
+
+[Event "?"]
+[White "Exam Time!"]
+[Black "Kassis, A. vs. Kuzubov, Y. #1"]
+[Result "*"]
+[FEN "1rbq1rk1/p1b1n1pp/1p2pp2/2p5/3PBP2/P1P3P1/1P3N1P/R1BQR1K1 b - - 0 18"]
+[SetUp "1"]
+1. -- *`
+
+	os.WriteFile(inputFile, []byte(input), 0644)
+	defer os.Remove(inputFile)
+	defer os.Remove(outputFile)
+
+	binPath := "../../../bin/build_markdown"
+	cmd := exec.Command(binPath, "-src", inputFile, "-out", outputFile, "-exam", "Exam Time!")
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to run binary: %v", err)
+	}
+
+	content, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatal("Output file not created")
+	}
+	contentStr := string(content)
+
+	// Chapters with White="Exam Time!" should be included
+	// First chapter: formatted as "Chapter 1: Exam Time! vs. Mix Exercises"
+	if !strings.Contains(contentStr, "Exam Time! vs. Mix Exercises") {
+		t.Errorf("First chapter with White='Exam Time!' should be included. Got:\n%s", contentStr)
+	}
+	// Second chapter: "## Exam Time!" because Black contains "vs."
+	if !strings.Contains(contentStr, "## Exam Time!") {
+		t.Errorf("Second chapter with White='Exam Time!' should have ## header. Got:\n%s", contentStr)
+	}
+
+	// Chapter "Chapter 1: Intro" should NOT be included
+	if strings.Contains(contentStr, "Chapter 1: Intro") {
+		t.Error("Chapter with White='Chapter 1: Intro' should not be included")
+	}
+}
+
+// Test exam flag: when FEN exists, output only FEN (no formatting)
+func TestMain_ExamWithFEN_OutputOnlyFEN(t *testing.T) {
+	inputFile := "/tmp/test_exam_fen.pgn"
+	outputFile := "/tmp/test_exam_fen_out.md"
+
+	input := `[Event "?"]
+[White "Exam Time!"]
+[Black "Kassis, A. vs. Kuzubov, Y. #1"]
+[Result "*"]
+[FEN "1rbq1rk1/p1b1n1pp/1p2pp2/2p5/3PBP2/P1P3P1/1P3N1P/R1BQR1K1 b - - 0 18"]
+[SetUp "1"]
+
+{ We have an unusual Pawn structure on the board. Can you find the best move for Black? }
+18... cxd4
+{ This creates an isolated Queen's Pawn for White which is a potential weakness. }
+*`
+
+	os.WriteFile(inputFile, []byte(input), 0644)
+	defer os.Remove(inputFile)
+	defer os.Remove(outputFile)
+
+	binPath := "../../../bin/build_markdown"
+	cmd := exec.Command(binPath, "-src", inputFile, "-out", outputFile, "-exam", "Exam Time!")
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to run binary: %v", err)
+	}
+
+	content, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatal("Output file not created")
+	}
+	contentStr := string(content)
+
+	// FEN should be present
+	if !strings.Contains(contentStr, "1rbq1rk1/p1b1n1pp/1p2pp2/2p5/3PBP2/P1P3P1/1P3N1P/R1BQR1K1") {
+		t.Error("FEN should be present in output")
+	}
+
+	// Comments should NOT be present (no formatting)
+	if strings.Contains(contentStr, "unusual Pawn structure") {
+		t.Error("Comments should NOT be present when FEN exists in exam mode")
+	}
+	if strings.Contains(contentStr, "isolated Queen's Pawn") {
+		t.Error("Comments should NOT be present when FEN exists in exam mode")
+	}
+
+	// Move notation should NOT be present
+	if strings.Contains(contentStr, "18...") {
+		t.Error("Moves should NOT be present when FEN exists in exam mode")
+	}
+}
+
+// Test exam flag: when no FEN, normal formatting applies
+func TestMain_ExamNoFEN_AppliesFormatting(t *testing.T) {
+	inputFile := "/tmp/test_exam_no_fen.pgn"
+	outputFile := "/tmp/test_exam_no_fen_out.md"
+
+	input := `[Event "?"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "Exam Time!"]
+[Black "Exam Time - Mix Exercises "]
+[Result "*"]
+
+{ On your journey so far in this course, you have come across different types of weak Pawns and worked on the ability to use them in different scenarios. This chapter is a mixture of all the previous chapters. Consider this as your exam. You have to apply all the knowledge and skills that you gained by working on the previous chapters of this course. Ensure that you read the questions carefully. Often you can get hints from the questions themselves. }
+1. -- *`
+
+	os.WriteFile(inputFile, []byte(input), 0644)
+	defer os.Remove(inputFile)
+	defer os.Remove(outputFile)
+
+	binPath := "../../../bin/build_markdown"
+	cmd := exec.Command(binPath, "-src", inputFile, "-out", outputFile, "-exam", "Exam Time!")
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to run binary: %v", err)
+	}
+
+	content, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatal("Output file not created")
+	}
+	contentStr := string(content)
+
+	// Title should be present
+	if !strings.Contains(contentStr, "##") {
+		t.Error("Chapter title should be present")
+	}
+
+	// Comment should be present (normal formatting)
+	if !strings.Contains(contentStr, "On your journey so far") {
+		t.Error("Comments should be present when no FEN in exam mode")
+	}
+	if !strings.Contains(contentStr, "mixture of all the previous chapters") {
+		t.Error("Comments should be present when no FEN in exam mode")
+	}
+}
+
+// Test exam flag: filter by Black match (exact match)
+func TestMain_ExamFilterByBlack(t *testing.T) {
+	inputFile := "/tmp/test_exam_black.pgn"
+	outputFile := "/tmp/test_exam_black_out.md"
+
+	input := `[Event "?"]
+[White "Chapter 1"]
+[Black "Exact Match Title"]
+[Result "*"]
+1. -- *
+
+[Event "?"]
+[White "Chapter 2"]
+[Black "Different Title"]
+[Result "*"]
+1. -- *
+
+[Event "?"]
+[White "Chapter 3"]
+[Black "Exact Match Title"]
+[Result "*"]
+[FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"]
+1. -- *`
+
+	os.WriteFile(inputFile, []byte(input), 0644)
+	defer os.Remove(inputFile)
+	defer os.Remove(outputFile)
+
+	binPath := "../../../bin/build_markdown"
+	cmd := exec.Command(binPath, "-src", inputFile, "-out", outputFile, "-exam", "Exact Match Title")
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to run binary: %v", err)
+	}
+
+	content, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatal("Output file not created")
+	}
+	contentStr := string(content)
+
+	// Both chapters with Black="Exact Match Title" should be included
+	// First chapter: Chapter 1 vs. Exact Match Title
+	if !strings.Contains(contentStr, "### Exact Match Title") {
+		t.Errorf("First chapter with Black='Exact Match Title' should be included. Got:\n%s", contentStr)
+	}
+	// Third chapter: Chapter 3 with FEN only
+	if !strings.Contains(contentStr, "Chapter 3") {
+		t.Errorf("Third chapter with Black='Exact Match Title' should be included. Got:\n%s", contentStr)
+	}
+	// Should contain FEN from third chapter (exam mode with FEN outputs only FEN)
+	if !strings.Contains(contentStr, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR") {
+		t.Error("FEN should be present from third chapter")
+	}
+
+	// Chapter "Different Title" should NOT be included
+	if strings.Contains(contentStr, "Chapter 2") {
+		t.Error("Chapter with Black='Different Title' should not be included")
+	}
+}
+
+// Test exam flag with inline-images: FEN converted to base64, no **FEN:** prefix
+func TestMain_ExamWithFENAndInlineImages(t *testing.T) {
+	inputFile := "/tmp/test_exam_inline.pgn"
+	outputFile := "/tmp/test_exam_inline_out.md"
+
+	input := `[Event "?"]
+[White "Exam Time!"]
+[Black "Test"]
+[Result "*"]
+[FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"]
+[SetUp "1"]
+1. -- *`
+
+	os.WriteFile(inputFile, []byte(input), 0644)
+	defer os.Remove(inputFile)
+	defer os.Remove(outputFile)
+
+	binPath := "../../../bin/build_markdown"
+	cmd := exec.Command(binPath, "-src", inputFile, "-out", outputFile, "-exam", "Exam Time!", "-inline-images")
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to run binary: %v", err)
+	}
+
+	content, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatal("Output file not created")
+	}
+	contentStr := string(content)
+
+	// Should contain base64 data URI format
+	if !strings.Contains(contentStr, "data:image/png;base64,") {
+		t.Error("FEN should be converted to base64 image when -inline-images is set")
+	}
+
+	// Should NOT contain raw FEN string
+	if strings.Contains(contentStr, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR") {
+		t.Error("Raw FEN string should not be present when -inline-images is set")
+	}
+
+	// Should NOT contain **FEN:** prefix when inline-images is used
+	if strings.Contains(contentStr, "**FEN:**") {
+		t.Error("**FEN:** prefix should not be present when -inline-images is set in exam mode")
+	}
+}
+
+// Test exam flag: no chapters match - empty output
+func TestMain_ExamNoMatchingChapters(t *testing.T) {
+	inputFile := "/tmp/test_exam_no_match.pgn"
+	outputFile := "/tmp/test_exam_no_match_out.md"
+
+	input := `[Event "?"]
+[White "Chapter 1"]
+[Black "A"]
+[Result "*"]
+1. -- *
+
+[Event "?"]
+[White "Chapter 2"]
+[Black "B"]
+[Result "*"]
+1. -- *`
+
+	os.WriteFile(inputFile, []byte(input), 0644)
+	defer os.Remove(inputFile)
+	defer os.Remove(outputFile)
+
+	binPath := "../../../bin/build_markdown"
+	cmd := exec.Command(binPath, "-src", inputFile, "-out", outputFile, "-exam", "Non-existent Title")
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to run binary: %v", err)
+	}
+
+	content, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatal("Output file not created")
+	}
+	contentStr := strings.TrimSpace(string(content))
+
+	// Output should be empty or contain only whitespace
+	if contentStr != "" {
+		t.Errorf("Expected empty output when no chapters match, got: %q", contentStr)
+	}
+}
+
+// Test that exam flag does not affect chapters without matching White or Black
+func TestMain_ExamPreservesOtherChapters(t *testing.T) {
+	inputFile := "/tmp/test_exam_mixed.pgn"
+	outputFile := "/tmp/test_exam_mixed_out.md"
+
+	input := `[Event "?"]
+[White "Other Chapter"]
+[Black "X"]
+[Result "*"]
+1. e4 e5 *
+
+[Event "?"]
+[White "Exam Time!"]
+[Black "Y"]
+[Result "*"]
+1. d4 d5 *
+
+[Event "?"]
+[White "Another Chapter"]
+[Black "Z"]
+[Result "*"]
+1. c4 c5 *`
+
+	os.WriteFile(inputFile, []byte(input), 0644)
+	defer os.Remove(inputFile)
+	defer os.Remove(outputFile)
+
+	binPath := "../../../bin/build_markdown"
+	cmd := exec.Command(binPath, "-src", inputFile, "-out", outputFile, "-exam", "Exam Time!")
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to run binary: %v", err)
+	}
+
+	content, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatal("Output file not created")
+	}
+	contentStr := string(content)
+
+	// Only chapter with White="Exam Time!" should be present
+	if !strings.Contains(contentStr, "Exam Time!") {
+		t.Error("Chapter with White='Exam Time!' should be included")
+	}
+
+	// Other chapters should NOT be present
+	if strings.Contains(contentStr, "Other Chapter") {
+		t.Error("Chapter with White='Other Chapter' should not be included")
+	}
+	if strings.Contains(contentStr, "Another Chapter") {
+		t.Error("Chapter with White='Another Chapter' should not be included")
+	}
+}
+
+// Test exam mode without inline-images: no **FEN:** prefix
+func TestMain_ExamWithFEN_NoInlineImages_NoPrefix(t *testing.T) {
+	inputFile := "/tmp/test_exam_no_inline.pgn"
+	outputFile := "/tmp/test_exam_no_inline_out.md"
+
+	input := `[Event "?"]
+[White "Exam Time!"]
+[Black "Test"]
+[Result "*"]
+[FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"]
+[SetUp "1"]
+1. -- *`
+
+	os.WriteFile(inputFile, []byte(input), 0644)
+	defer os.Remove(inputFile)
+	defer os.Remove(outputFile)
+
+	binPath := "../../../bin/build_markdown"
+	cmd := exec.Command(binPath, "-src", inputFile, "-out", outputFile, "-exam", "Exam Time!")
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to run binary: %v", err)
+	}
+
+	content, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatal("Output file not created")
+	}
+	contentStr := string(content)
+
+	// In exam mode without inline-images, FEN should be present but WITHOUT **FEN:** prefix
+	if !strings.Contains(contentStr, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR") {
+		t.Error("FEN should be present in output")
+	}
+
+	// Should NOT contain **FEN:** prefix in exam mode
+	if strings.Contains(contentStr, "**FEN:**") {
+		t.Error("**FEN:** prefix should not be present in exam mode (FEN should be output directly)")
+	}
+}
+
+// Test inline-images without exam mode: no **FEN:** prefix
+func TestMain_InlineImagesNoExam_NoPrefix(t *testing.T) {
+	inputFile := "/tmp/test_inline_no_exam.pgn"
+	outputFile := "/tmp/test_inline_no_exam_out.md"
+
+	input := `[Event "?"]
+[White "Player A"]
+[Black "Player B"]
+[Result "*"]
+[FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"]
+[SetUp "1"]
+1. e4 e5 *`
+
+	os.WriteFile(inputFile, []byte(input), 0644)
+	defer os.Remove(inputFile)
+	defer os.Remove(outputFile)
+
+	binPath := "../../../bin/build_markdown"
+	cmd := exec.Command(binPath, "-src", inputFile, "-out", outputFile, "-inline-images")
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to run binary: %v", err)
+	}
+
+	content, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatal("Output file not created")
+	}
+	contentStr := string(content)
+
+	// Should contain base64 data URI format
+	if !strings.Contains(contentStr, "data:image/png;base64,") {
+		t.Error("FEN should be converted to base64 image when -inline-images is set")
+	}
+
+	// Should NOT contain raw FEN string
+	if strings.Contains(contentStr, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR") {
+		t.Error("Raw FEN string should not be present when -inline-images is set")
+	}
+
+	// Should NOT contain **FEN:** prefix when inline-images is used (even without exam)
+	if strings.Contains(contentStr, "**FEN:**") {
+		t.Error("**FEN:** prefix should not be present when -inline-images is set")
+	}
+}

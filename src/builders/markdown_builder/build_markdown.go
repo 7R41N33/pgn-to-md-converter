@@ -667,6 +667,7 @@ func main() {
 	inlineImages := flag.Bool("inline-images", false, "Replace FEN strings with inline base64 images")
 	numberedLists := flag.Bool("numbered-lists", true, "Format numbered lists with 2-space indent (default: true)")
 	dashLists := flag.Bool("dash-lists", false, "Format dash lists with 2-space indent (default: false)")
+	exam := flag.String("exam", "", "Process only chapters where White field exactly matches this value. If chapter contains FEN, output only FEN. Otherwise, format normally.")
 	flag.Parse()
 
 	if *src == "" || *out == "" {
@@ -719,6 +720,15 @@ func main() {
 
 		tags := parseGameTags(g)
 		
+		// If exam filter is set, check if White or Black matches exactly
+		if *exam != "" {
+			rawWhite := strings.TrimSpace(tags["White"])
+			rawBlack := strings.TrimSpace(tags["Black"])
+			if rawWhite != *exam && rawBlack != *exam {
+				continue
+			}
+		}
+		
 		// Detect if this is a book chapter format BEFORE translation
 		rawWhite := tags["White"]
 		rawBlack := tags["Black"]
@@ -733,51 +743,75 @@ func main() {
 		white := tags["White"]
 		black := tags["Black"]
 
-	if isBookChapter {
-		// Book chapter format: ## White, ### Black
-		// If "vs." is found in White or Black, use the full text from that field
-		whiteTitle := white
-		blackTitle := black
-		
-		if strings.Contains(white, " vs. ") {
-			whiteTitle = white
-			// If vs. is in White, use it as ## and don't add separate ###
-			if white != prevWhite {
-				output += "## " + whiteTitle + "\n\n"
-				prevWhite = white
-			}
-		} else if strings.Contains(black, " vs. ") {
-			// If vs. is in Black, use it as ###
-			blackTitle = black
-			if white != prevWhite {
-				output += "## " + whiteTitle + "\n\n"
-				prevWhite = white
-			}
-			output += "### " + blackTitle + "\n\n"
-		} else {
-			// Normal case: no "vs." in either field
-			if white != prevWhite {
-				output += "## " + whiteTitle + "\n\n"
-				prevWhite = white
-			}
-			if blackTitle != "" {
+// Check if chapter has FEN (for exam mode)
+		hasFEN := false
+		if *exam != "" {
+			fenRe := regexp.MustCompile(`\[FEN\s+"([^"]*)"\]`)
+			fenMatch := fenRe.FindStringSubmatch(g)
+			hasFEN = len(fenMatch) > 1
+		}
+
+		if isBookChapter {
+			// Book chapter format: ## White, ### Black
+			// If "vs." is found in White or Black, use the full text from that field
+			whiteTitle := white
+			blackTitle := black
+			
+			if strings.Contains(white, " vs. ") {
+				whiteTitle = white
+				// If vs. is in White, use it as ## and don't add separate ###
+				if white != prevWhite {
+					output += "## " + whiteTitle + "\n\n"
+					prevWhite = white
+				}
+			} else if strings.Contains(black, " vs. ") {
+				// If vs. is in Black, use it as ###
+				blackTitle = black
+				if white != prevWhite {
+					output += "## " + whiteTitle + "\n\n"
+					prevWhite = white
+				}
 				output += "### " + blackTitle + "\n\n"
+			} else {
+				// Normal case: no "vs." in either field
+				if white != prevWhite {
+					output += "## " + whiteTitle + "\n\n"
+					prevWhite = white
+				}
+				if blackTitle != "" {
+					output += "### " + blackTitle + "\n\n"
+				}
 			}
-		}
-	} else {
-		// Normal game format: ## White vs. Black, City Year
-		title := buildChapterTitle(tags, chapterNum)
-		output += "## " + title + "\n\n"
-	}
-
-		moves := extractMoveText(g, *inlineImages, *numberedLists, *dashLists)
-
-		// Replace FEN strings with inline base64 images if flag is set
-		if *inlineImages {
-			moves = replaceFENWithImages(moves, false)
+		} else {
+			// Normal game format: ## White vs. Black, City Year
+			title := buildChapterTitle(tags, chapterNum)
+			output += "## " + title + "\n\n"
 		}
 
-		output += moves + "\n\n"
+		// Exam mode: if chapter has FEN, output only FEN (no prefix)
+		if *exam != "" && hasFEN {
+			fenRe := regexp.MustCompile(`\[FEN\s+"([^"]*)"\]`)
+			fenMatch := fenRe.FindStringSubmatch(g)
+			if len(fenMatch) > 1 {
+				fen := fenMatch[1]
+				if *inlineImages {
+					b64, err := fenlib.GenerateDiagramBase64(fen)
+					if err == nil {
+						fen = fmt.Sprintf("data:image/png;base64,%s", b64)
+					}
+				}
+				output += fen + "\n\n"
+			}
+		} else {
+			moves := extractMoveText(g, *inlineImages, *numberedLists, *dashLists)
+
+			// Replace FEN strings with inline base64 images if flag is set
+			if *inlineImages {
+				moves = replaceFENWithImages(moves, false)
+			}
+
+			output += moves + "\n\n"
+		}
 	}
 
 	err = os.WriteFile(*out, []byte(output), 0644)

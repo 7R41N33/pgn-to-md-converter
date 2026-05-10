@@ -15,18 +15,56 @@
 
 Скрипт `markdown_builder` конвертирует PGN-файлы в форматированный Markdown. Поддерживает вставку диаграмм в виде base64-изображений.
 
-### Через бинарник (рекомендуется)
+### Параметры
+
+- `-src` — Путь к входному PGN-файлу (обязательно)
+- `-out` — Путь к выходному Markdown-файлу (обязательно)
+- `-skip` — Пропустить N первых глав (опционально)
+- `-chapters` — Обработать только первые N глав (после skip) (опционально)
+- `-chapter-numbers` — Обработать только указанные номера глав (1‑based, через запятую) (опционально)
+- `--inline-images` — Заменять FEN-строки на data URI формат: `data:image/png;base64,...` (опционально)
+- `-numbered-lists` — Форматировать нумерованные списки (по умолчанию: true) (опционально)
+- `-dash-lists` — Форматировать списки с тире (по умолчанию: false) (опционально)
+- `-exam` — Режим экзамена: обрабатывает только главы, где White или Black **полностью** равны указанной строке. Если глава содержит FEN — выводит только FEN. Если FEN отсутствует — применяется обычное форматирование (опционально)
+
+### Примеры
 
 ```bash
-./bin/build_markdown -src <path_to_pgn> -out <path_to_md> [-filter-white <name>] [-skip <n>] [-chapters <n>] [-chapter-numbers <list>] [--inline-images]
+# Базовая конвертация
+./bin/build_markdown -src input.pgn -out output.md
+
+# Конвертация с встроенными base64 диаграммами
+./bin/build_markdown -src input.pgn -out output.md --inline-images
+
+# Пропустить первые 2 главы, обработать следующие 5
+./bin/build_markdown -src input.pgn -out output.md -skip 2 -chapters 5
+
+# Обработать только главы 1, 3 и 5
+./bin/build_markdown -src input.pgn -out output.md -chapter-numbers 1,3,5
+
+# Режим экзамена — только главы с White="Exam Time!"
+./bin/build_markdown -src input.pgn -out output.md -exam "Exam Time!"
+
+# Режим экзамена с inline-изображениями
+./bin/build_markdown -src input.pgn -out output.md -exam "Exam Time!" --inline-images
+
+# Отключить форматирование нумерованных списков
+./bin/build_markdown -src input.pgn -out output.md -numbered-lists=false
+
+# Включить форматирование списков с тире
+./bin/build_markdown -src input.pgn -out output.md -dash-lists=true
 ```
 
-### Через исходный код
+### Описание
 
-```bash
-cd src/builders/markdown_builder/
-go run build_markdown.go -src <path_to_pgn> -out <path_to_md> [-filter-white <name>] [-skip <n>] [-chapters <n>] [-chapter-numbers <list>] [--inline-images]
-```
+- **Вход:** PGN-файл с шахматными партиями
+- **Выход:** Markdown-файл с отформатированными ходами
+- **FEN-строки:** По умолчанию сохраняются как `**FEN:** \`FEN-строка\``. С флагом `--inline-images` заменяются на `data:image/png;base64,...` (без маркера `**FEN:**`)
+- **Заголовки глав:** Автоматически форматирует заголовки глав: `White` → `##`, `Black` → `###`. Если `White` повторяется, пропускает `##` и использует только `###`
+- **Нумерованные списки:** По умолчанию форматируются с новой строки и отступом. Можно отключить через `-numbered-lists=false`
+- **Списки с тире:** По умолчанию не форматируются. Можно включить через `-dash-lists=true`
+- **Режим экзамена:** Полезен для создания учебных пособий — главы-упражнения показывают только позицию (FEN), а вводные главы форматируются полностью
+- **Зависимости:** Использует пакет `fenlib` для генерации диаграмм
 
 ## Использование fen_builder
 
@@ -73,51 +111,11 @@ go run fen_to_diagram.go <fen_string> [output_path] [--base64]
 ### Тестирование
 
 ```bash
+# Тесты fenlib
 cd src/builders/fenlib/
 go test -v
-```
 
-### Параметры
-
-- `-src` — Путь к входному PGN-файлу (обязательно)
-- `-out` — Путь к выходному Markdown-файлу (обязательно)
-- `-filter-white` — Фильтр по имени белого игрока (опционально)
-- `-skip` — Пропустить N первых глав (опционально)
-- `-chapters` — Обработать только первые N глав (после skip) (опционально)
-- `-chapter-numbers` — Обработать только указанные номера глав (1‑based, через запятую) (опционально)
-- `--inline-images` — Заменять FEN-строки на data URI формат: `data:image/png;base64,...` (опционально)
-- `-numbered-lists` — Форматировать нумерованные списки (по умолчанию: true) (опционально)
-- `-dash-lists` — Форматировать списки с тире (по умолчанию: false) (опционально)
-
-### Примеры
-
-```bash
-# Конвертация с встроенными base64 диаграммами
-./bin/build_markdown -src input.pgn -out output.md --inline-images
-
-# Отключить форматирование нумерованных списков
-./bin/build_markdown -src input.pgn -out output.md -numbered-lists=false
-
-# Включить форматирование списков с тире
-./bin/build_markdown -src input.pgn -out output.md -dash-lists=true
-
-# Комбинация параметров
-./bin/build_markdown -src input.pgn -out output.md -skip 2 -chapters 8 -numbered-lists=true -dash-lists=true
-```
-
-### Описание
-
-- **Вход:** PGN-файл с шахматными партиями
-- **Выход:** Markdown-файл с отформатированными ходами
-- **FEN-строки:** По умолчанию сохраняются как текст. С флагом `--inline-images` заменяются на `data:image/png;base64,...` (без markdown-обертки)
-- **Заголовки глав:** Автоматически форматирует заголовки глав: `White` → `##`, `Black` → `###`. Если `White` повторяется, пропускает `##` и использует только `###`
-- **Нумерованные списки:** По умолчанию форматируются с новой строки и отступом. Можно отключить через `-numbered-lists=false`
-- **Списки с тире:** По умолчанию не форматируются. Можно включить через `-dash-lists=true`
-- **Зависимости:** Использует пакет `fenlib` для генерации диаграмм
-
-### Тестирование
-
-```bash
+# Тесты markdown_builder
 cd src/builders/markdown_builder/
 go test -v
 ```
