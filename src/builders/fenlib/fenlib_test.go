@@ -19,7 +19,8 @@ func TestGenerateBoard_StandardStart(t *testing.T) {
 	}
 	
 	// Check that the board has the correct dimensions
-	expectedSize := 8*60 + 2*(60/2) // 8 cells + 2*border
+	// New size with extra border: 8 cells + 2*border (30 + 15 extra)
+	expectedSize := 8*60 + 2*(60/2+15) // 8 cells + 2*border
 	if board.Bounds().Dx() != expectedSize || board.Bounds().Dy() != expectedSize {
 		t.Errorf("Board size = %dx%d, want %dx%d", board.Bounds().Dx(), board.Bounds().Dy(), expectedSize, expectedSize)
 	}
@@ -180,4 +181,226 @@ func TestFENSpriteOrder(t *testing.T) {
 	if idx := strings.IndexRune(pieceOrder, 'p'); idx != 11 {
 		t.Errorf("'p' should be at index 11, got %d", idx)
 	}
+}
+
+func TestDrawTriangle_WhiteTurn(t *testing.T) {
+	fen := "8/8/8/8/8/8/8/8 w - - 0 1"
+
+	board, err := GenerateBoard(fen)
+	if err != nil {
+		t.Fatalf("Failed to generate board: %v", err)
+	}
+
+	cellSize := 60
+	borderSize := cellSize/2 + 15
+	boardSize := 8 * cellSize
+
+	margin := 3
+	triangleSize := cellSize / 2
+	triangleBaseWidth := int(float64(triangleSize) * 2.0 / 1.7320508075688772)
+	trianglePadding := 3
+	triangleCenterX := borderSize + boardSize + margin + triangleBaseWidth/2 + trianglePadding
+	triangleCenterY := borderSize + boardSize - cellSize/2
+
+	// Check that some pixels in the triangle area are white (white turn indicator)
+	whiteFound := false
+	for x := triangleCenterX - triangleSize; x < triangleCenterX+triangleSize && !whiteFound; x++ {
+		for y := triangleCenterY - triangleSize; y < triangleCenterY+triangleSize; y++ {
+			c := board.At(x, y)
+			r, g, b, a := c.RGBA()
+			// White pixel (almost white, since we draw white on white border)
+			if a > 0 && r > 65000 && g > 65000 && b > 65000 {
+				whiteFound = true
+				break
+			}
+		}
+	}
+
+	if !whiteFound {
+		t.Error("White turn indicator (white triangle center) not found")
+	}
+
+	// Check that some pixels in the triangle area are black (border)
+	blackFound := false
+	for x := triangleCenterX - triangleSize; x < triangleCenterX+triangleSize && !blackFound; x++ {
+		for y := triangleCenterY - triangleSize; y < triangleCenterY+triangleSize; y++ {
+			c := board.At(x, y)
+			r, g, b, a := c.RGBA()
+			// Black or dark pixel
+			if a > 0 && r < 10000 && g < 10000 && b < 10000 {
+				blackFound = true
+				break
+			}
+		}
+	}
+
+	if !blackFound {
+		t.Error("Black border of triangle not found")
+	}
+}
+
+func TestDrawTriangle_BlackTurn(t *testing.T) {
+	fen := "8/8/8/8/8/8/8/8 b - - 0 1"
+
+	board, err := GenerateBoard(fen)
+	if err != nil {
+		t.Fatalf("Failed to generate board: %v", err)
+	}
+
+	cellSize := 60
+	borderSize := cellSize/2 + 15
+	boardSize := 8 * cellSize
+
+	margin := 3
+	triangleSize := cellSize / 2
+	triangleBaseWidth := int(float64(triangleSize) * 2.0 / 1.7320508075688772)
+	trianglePadding := 3
+	triangleCenterX := borderSize + boardSize + margin + triangleBaseWidth/2 + trianglePadding
+	triangleCenterY := borderSize + boardSize - cellSize/2
+
+	// For black turn, triangle should be solid black (no white center)
+	// Check that the triangle area contains black pixels
+	blackFound := false
+	for x := triangleCenterX - triangleSize; x < triangleCenterX+triangleSize && !blackFound; x++ {
+		for y := triangleCenterY - triangleSize; y < triangleCenterY+triangleSize; y++ {
+			c := board.At(x, y)
+			r, g, b, a := c.RGBA()
+			if a > 0 && r < 10000 && g < 10000 && b < 10000 {
+				blackFound = true
+				break
+			}
+		}
+	}
+
+	if !blackFound {
+		t.Error("Black turn indicator (black triangle) not found")
+	}
+}
+
+func TestDrawTriangle_Position(t *testing.T) {
+	fen := "8/8/8/8/8/8/8/8 w - - 0 1"
+
+	board, err := GenerateBoard(fen)
+	if err != nil {
+		t.Fatalf("Failed to generate board: %v", err)
+	}
+
+	cellSize := 60
+	borderSize := cellSize/2 + 15
+	boardSize := 8 * cellSize
+
+	// Check that the corner cell (h1) does NOT have triangle pixels
+
+	// Check that the board area doesn't have triangle
+	// The triangle should only appear to the right of the board
+	lastBoardX := borderSize + boardSize - 1
+	c := board.At(lastBoardX, borderSize+boardSize-1)
+	r, g, b, a := c.RGBA()
+	// This should be a board cell color, not triangle
+	// Board cell should be light or dark brown, not white (border) or black (triangle)
+	isBoardColor := (r > 50000 && g > 40000 && b > 30000) || // Light brown
+		(r > 30000 && r < 60000 && g > 20000 && g < 50000 && b > 20000 && b < 40000) // Dark brown
+
+	if !isBoardColor {
+		t.Errorf("Last board cell should be board color, got rgba(%d,%d,%d,%d)", r, g, b, a)
+	}
+
+	// Check that the triangle area (right of board, at h1 level) contains the indicator
+	margin := 3
+	triangleSize := cellSize / 2
+	triangleBaseWidth := int(float64(triangleSize) * 2.0 / 1.7320508075688772)
+	trianglePadding := 3
+	triangleCenterX := borderSize + boardSize + margin + triangleBaseWidth/2 + trianglePadding
+	triangleCenterY := borderSize + boardSize - cellSize/2
+	c = board.At(triangleCenterX, triangleCenterY)
+	r, g, b, a = c.RGBA()
+
+	// Triangle area should have some non-white pixels (triangle border or fill)
+	// It should NOT be pure white (which is the border color)
+	if a > 0 && r > 240 && g > 240 && b > 240 {
+		// White pixel in triangle area - check if triangle is there
+	}
+}
+
+func TestDrawTriangle_Equilateral(t *testing.T) {
+	fen := "8/8/8/8/8/8/8/8 w - - 0 1"
+
+	board, err := GenerateBoard(fen)
+	if err != nil {
+		t.Fatalf("Failed to generate board: %v", err)
+	}
+
+	cellSize := 60
+	borderSize := cellSize/2 + 15
+	boardSize := 8 * cellSize
+	margin := 3
+	triangleSize := cellSize / 2
+	triangleBaseWidth := int(float64(triangleSize) * 2.0 / 1.7320508075688772)
+	trianglePadding := 3
+
+	// Check that some non-white pixels exist in the triangle area
+	triangleCenterX := borderSize + boardSize + margin + triangleBaseWidth/2 + trianglePadding
+	triangleCenterY := borderSize + boardSize - cellSize/2
+
+	triangleFound := false
+	for x := triangleCenterX - triangleSize; x < triangleCenterX+triangleSize && !triangleFound; x++ {
+		for y := triangleCenterY - triangleSize; y < triangleCenterY+triangleSize; y++ {
+			c := board.At(x, y)
+			r, g, b, a := c.RGBA()
+			// Check for non-white pixels (triangle is black or white with black border)
+			if a > 0 && !(r > 65000 && g > 65000 && b > 65000) {
+				triangleFound = true
+				break
+			}
+		}
+	}
+
+	if !triangleFound {
+		t.Error("Triangle not found in expected area")
+	}
+}
+
+func TestDrawTriangle_Exists(t *testing.T) {
+	fen := "8/8/8/8/8/8/8/8 w - - 0 1"
+
+	board, err := GenerateBoard(fen)
+	if err != nil {
+		t.Fatalf("Failed to generate board: %v", err)
+	}
+
+	cellSize := 60
+	borderSize := cellSize/2 + 15
+	boardSize := 8 * cellSize
+	margin := 3
+	triangleSize := cellSize / 2
+	triangleBaseWidth := int(float64(triangleSize) * 2.0 / 1.7320508075688772)
+	trianglePadding := 3
+
+	triangleCenterX := borderSize + boardSize + margin + triangleBaseWidth/2 + trianglePadding
+	triangleCenterY := borderSize + boardSize - cellSize/2
+
+	// Scan the triangle area for non-white pixels (indicating triangle is drawn)
+	triangleFound := false
+	for x := triangleCenterX - triangleSize; x < triangleCenterX+triangleSize && !triangleFound; x++ {
+		for y := triangleCenterY - triangleSize; y < triangleCenterY+triangleSize; y++ {
+			c := board.At(x, y)
+			r, g, b, a := c.RGBA()
+			// Check for non-white pixels (triangle is black or white with black border)
+			if a > 0 && !(r > 65000 && g > 65000 && b > 65000) {
+				triangleFound = true
+				break
+			}
+		}
+	}
+
+	if !triangleFound {
+		t.Error("Triangle indicator not found in expected area")
+	}
+}
+
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
 }

@@ -130,7 +130,7 @@ func GenerateBoard(fen string) (*image.RGBA, error) {
 
 	cellSize := 60
 	boardSize := 8 * cellSize
-	borderSize := cellSize / 2 // Half cell border around board
+	borderSize := cellSize/2 + 15 // Half cell border + extra 15px for triangle indicator
 
 	// Image size: board + border on all sides
 	imgSize := boardSize + 2*borderSize
@@ -182,7 +182,131 @@ func GenerateBoard(fen string) (*image.RGBA, error) {
 		}
 	}
 
+	// Draw active color indicator (triangle) in bottom-right corner
+	drawActiveColorIndicator(board, borderSize, cellSize, fields[FENActiveColor] == "w")
+
 	return board, nil
+}
+
+// drawActiveColorIndicator draws a triangle at the level of h1 square
+// Size matches piece height, points up (60-degree equilateral)
+// White: white fill with black border, Black: black fill
+func drawActiveColorIndicator(board *image.RGBA, borderSize, cellSize int, isWhiteTurn bool) {
+	triangleSize := cellSize / 2       // Half size of a piece
+	trianglePadding := 3              // Border width
+	margin := 3                        // Small gap from board edge
+
+	boardSize := 8 * cellSize
+
+	// Position: aligned with h1 square (bottom-right of the board)
+	// h1 square ends at: borderSize + boardSize
+	// Triangle should be just to the right of the board with a gap
+	// Base width of equilateral triangle with height=triangleSize is approximately 1.155*height
+	triangleBaseWidth := int(float64(triangleSize) * 2.0 / 1.7320508075688772)
+	triangleCenterX := borderSize + boardSize + margin + triangleBaseWidth/2 + trianglePadding
+	// Same y-level as h1: board bottom is at borderSize + boardSize
+	triangleCenterY := borderSize + boardSize - cellSize/2
+
+	// For upward-pointing triangle:
+	// Apex (top point) at top, base at bottom
+	// Height = triangleSize, base = triangleSize * 2/sqrt(3)
+	height := float64(triangleSize)
+	base := height * 2.0 / 1.7320508075688772 // 2/sqrt(3)
+
+	// Apex at top, base at bottom
+	apexX := triangleCenterX
+	apexY := triangleCenterY - triangleSize/2
+	baseLeftX := triangleCenterX - int(base)/2
+	baseLeftY := triangleCenterY + triangleSize/2
+	baseRightX := triangleCenterX + int(base)/2
+	baseRightY := triangleCenterY + triangleSize/2
+
+	// Draw black border first (slightly larger triangle)
+	borderTriangle := []image.Point{
+		{apexX, apexY - trianglePadding},
+		{baseLeftX - trianglePadding/2, baseLeftY + trianglePadding/2},
+		{baseRightX + trianglePadding/2, baseRightY + trianglePadding/2},
+	}
+	drawTriangle(board, borderTriangle, color.Black)
+
+	// Draw fill triangle (slightly smaller)
+	fillTriangle := []image.Point{
+		{apexX, apexY + trianglePadding},
+		{baseLeftX + trianglePadding/2, baseLeftY - trianglePadding/2},
+		{baseRightX - trianglePadding/2, baseRightY - trianglePadding/2},
+	}
+
+	if isWhiteTurn {
+		drawTriangle(board, fillTriangle, color.White)
+	} else {
+		drawTriangle(board, fillTriangle, color.Black)
+	}
+}
+
+// drawTriangle draws a filled triangle given three vertices
+func drawTriangle(board *image.RGBA, vertices []image.Point, fillColor color.Color) {
+	if len(vertices) != 3 {
+		return
+	}
+
+	// Get bounding box
+	minX := vertices[0].X
+	maxX := vertices[0].X
+	minY := vertices[0].Y
+	maxY := vertices[0].Y
+	for _, v := range vertices {
+		if v.X < minX {
+			minX = v.X
+		}
+		if v.X > maxX {
+			maxX = v.X
+		}
+		if v.Y < minY {
+			minY = v.Y
+		}
+		if v.Y > maxY {
+			maxY = v.Y
+		}
+	}
+
+	// Draw filled triangle using scanline algorithm
+	for y := minY; y <= maxY; y++ {
+		// Find intersections with triangle edges at this y coordinate
+		var intersections []int
+		for i := 0; i < 3; i++ {
+			p1 := vertices[i]
+			p2 := vertices[(i+1)%3]
+
+			// Check if this edge crosses the y coordinate
+			if (p1.Y <= y && p2.Y > y) || (p2.Y <= y && p1.Y > y) {
+				// Calculate x coordinate of intersection
+				slope := float64(p2.X-p1.X) / float64(p2.Y-p1.Y)
+				x := float64(p1.X) + slope*(float64(y)-float64(p1.Y))
+				intersections = append(intersections, int(x))
+			}
+		}
+
+		// Sort intersections
+		for i := 0; i < len(intersections)-1; i++ {
+			for j := i + 1; j < len(intersections); j++ {
+				if intersections[i] > intersections[j] {
+					intersections[i], intersections[j] = intersections[j], intersections[i]
+				}
+			}
+		}
+
+		// Draw horizontal line between pairs of intersections
+		for i := 0; i < len(intersections)-1; i += 2 {
+			x1 := intersections[i]
+			x2 := intersections[i+1]
+			if x1 > x2 {
+				x1, x2 = x2, x1
+			}
+			for x := x1; x <= x2; x++ {
+				board.Set(x, y, fillColor)
+			}
+		}
+	}
 }
 
 // GenerateDiagram generates a chess diagram and saves it to a file
