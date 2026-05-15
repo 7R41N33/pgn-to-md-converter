@@ -16,7 +16,8 @@ func TestBuildChapterTitle_Basic(t *testing.T) {
 		"Date":  "2021.05.15",
 	}
 	title := buildChapterTitle(tags, 1)
-	expected := "Chapter 1: Nepomniachtchi, Ian vs. Alekseenko, Kirill, Ekaterinburg 2021"
+	// Since neither White nor Black contains "vs.", use comma separator
+	expected := "Chapter 1: Nepomniachtchi, Ian, Alekseenko, Kirill, Ekaterinburg 2021"
 	if title != expected {
 		t.Errorf("Expected: %s\nGot: %s", expected, title)
 	}
@@ -177,6 +178,53 @@ func TestBuildChapterTitle_MalformedPGN(t *testing.T) {
 	}
 	if !strings.Contains(title, "2021") {
 		t.Errorf("Title should contain year: %s", title)
+	}
+}
+
+func TestBuildChapterTitle_NoVsInEitherField(t *testing.T) {
+	tags := GameTags{
+		"White": "Exam Time!",
+		"Black": "Exam Time - Mix Exercises",
+	}
+	title := buildChapterTitle(tags, 257)
+	// Should NOT contain "vs." because neither White nor Black has it
+	if strings.Contains(title, " vs. ") {
+		t.Errorf("Title should NOT contain 'vs.' when neither White nor Black has it: %s", title)
+	}
+	// Should use comma instead
+	expected := "Chapter 257: Exam Time!, Exam Time - Mix Exercises"
+	if title != expected {
+		t.Errorf("Title = %q, want %q", title, expected)
+	}
+}
+
+func TestBuildChapterTitle_WithVsInWhite(t *testing.T) {
+	tags := GameTags{
+		"White": "Player A vs. Player B",
+		"Black": "Some game",
+	}
+	title := buildChapterTitle(tags, 1)
+	// Should contain "vs." because White has it
+	if !strings.Contains(title, " vs. ") {
+		t.Errorf("Title should contain 'vs.' when White has it: %s", title)
+	}
+}
+
+func TestBuildChapterTitle_WithVsInBlack(t *testing.T) {
+	tags := GameTags{
+		"White": "Player A",
+		"Black": "Player B vs. Player C, City 2021",
+		"Site":  "?",
+		"Date":  "????.??.??",
+	}
+	title := buildChapterTitle(tags, 1)
+	// Should contain "vs." because Black has it
+	if !strings.Contains(title, " vs. ") {
+		t.Errorf("Title should contain 'vs.' when Black has it: %s", title)
+	}
+	// Should contain city from the malformed Black field
+	if !strings.Contains(title, "City") {
+		t.Errorf("Title should contain 'City' from Black field: %s", title)
 	}
 }
 
@@ -1102,15 +1150,15 @@ func TestMain_ChapterNumbers(t *testing.T) {
 	if count != 2 {
 		t.Errorf("Expected 2 chapters, got %d", count)
 	}
-	// Check that White vs Black is present for chapters 1 and 3
-	if !strings.Contains(string(content), "A vs. B") {
-		t.Error("Should contain 'A vs. B' for Game 1")
+	// Check that White vs Black is present for chapters 1 and 3 (comma separator since no "vs.")
+	if !strings.Contains(string(content), "A, B") {
+		t.Error("Should contain 'A, B' for Game 1")
 	}
-	if strings.Contains(string(content), "C vs. D") {
-		t.Error("Should not contain 'C vs. D' for Game 2")
+	if strings.Contains(string(content), "C, D") {
+		t.Error("Should not contain 'C, D' for Game 2")
 	}
-	if !strings.Contains(string(content), "E vs. F") {
-		t.Error("Should contain 'E vs. F' for Game 3")
+	if !strings.Contains(string(content), "E, F") {
+		t.Error("Should contain 'E, F' for Game 3")
 	}
 }
 
@@ -1161,12 +1209,12 @@ func TestMain_SkipAndChapters(t *testing.T) {
 	if count != 2 {
 		t.Errorf("Expected 2 chapters, got %d", count)
 	}
-	// Should contain Game 2 and Game 3
-	if !strings.Contains(string(content), "C vs. D") {
-		t.Error("Should contain 'C vs. D' for Game 2")
+	// Should contain Game 2 and Game 3 (comma separator since no "vs." in tags)
+	if !strings.Contains(string(content), "C, D") {
+		t.Error("Should contain 'C, D' for Game 2")
 	}
-	if !strings.Contains(string(content), "E vs. F") {
-		t.Error("Should contain 'E vs. F' for Game 3")
+	if !strings.Contains(string(content), "E, F") {
+		t.Error("Should contain 'E, F' for Game 3")
 	}
 	if strings.Contains(string(content), "A vs. B") {
 		t.Error("Should not contain 'A vs. B' (Game 1 was skipped)")
@@ -1565,8 +1613,8 @@ func TestMain_ExamFilterByWhite(t *testing.T) {
 	contentStr := string(content)
 
 	// Chapters with White="Exam Time!" should be included
-	// First chapter: formatted as "Chapter 1: Exam Time! vs. Mix Exercises"
-	if !strings.Contains(contentStr, "Exam Time! vs. Mix Exercises") {
+	// First chapter: formatted as "Chapter 1: Exam Time!, Mix Exercises" (no vs.)
+	if !strings.Contains(contentStr, "Exam Time!, Mix Exercises") {
 		t.Errorf("First chapter with White='Exam Time!' should be included. Got:\n%s", contentStr)
 	}
 	// Second chapter: "## Exam Time!" because Black contains "vs."

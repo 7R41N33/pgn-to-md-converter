@@ -258,6 +258,10 @@ func buildChapterTitle(tags GameTags, chapterNum int) string {
 	site := tags["Site"]
 	date := tags["Date"]
 	
+	// Check if either field contains "vs." BEFORE any modifications
+	hasVsInWhite := strings.Contains(white, " vs. ")
+	hasVsInBlack := strings.Contains(black, " vs. ")
+	
 	// Handle malformed PGN where Black field contains entire title
 	if strings.Contains(black, " vs. ") {
 		parts := strings.Split(black, " vs. ")
@@ -317,7 +321,21 @@ func buildChapterTitle(tags GameTags, chapterNum int) string {
 		}
 	}
 	
-	title := fmt.Sprintf("Chapter %d: %s vs. %s", chapterNum, white, black)
+	// Only use "vs." in title if either white or black contains " vs. "
+	// Use the saved flags because white/black may have been modified
+	if hasVsInWhite || hasVsInBlack {
+		title := fmt.Sprintf("Chapter %d: %s vs. %s", chapterNum, white, black)
+		if city != "" {
+			title += ", " + city
+		}
+		if year != "" {
+			title += " " + year
+		}
+		return title
+	}
+	
+	// Otherwise use comma separation
+	title := fmt.Sprintf("Chapter %d: %s, %s", chapterNum, white, black)
 	if city != "" {
 		title += ", " + city
 	}
