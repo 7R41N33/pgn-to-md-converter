@@ -11,6 +11,8 @@ import (
 	"fen-diagram/src/builders/fenlib"
 )
 
+var startingPositionFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+
 var nagMap = map[string]string{
 	"$1": "±", "$2": "∓", "$3": "+-", "$4": "-+",
 	"$5": "+/=", "$6": "=/+", "$10": "=", "$13": "∞",
@@ -489,7 +491,7 @@ func extractMoveText(gameText string, inlineImages bool, numberedLists bool, das
 	inlineFENRe := regexp.MustCompile(`@@StartFEN@@([^@]*)@@EndFEN@@`)
 	movetext = inlineFENRe.ReplaceAllStringFunc(movetext, func(match string) string {
 		fenPart := strings.TrimSpace(match[len("@@StartFEN@@") : len(match)-len("@@EndFEN@@")])
-		if fenPart == "" {
+		if fenPart == "" || fenPart == startingPositionFEN {
 			return ""
 		}
 		if inlineImages {

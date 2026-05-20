@@ -1965,7 +1965,7 @@ func TestMain_ExamWithFEN_NoInlineImages_NoPrefix(t *testing.T) {
 
 // Test inline FEN markers: basic handling
 func TestExtractMoveText_InlineFENMarkers(t *testing.T) {
-	input := "[Result \"*\"]\n\n1. e4 {Some text @@StartFEN@@rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1@@EndFEN@@ more text} e5\n*"
+	input := "[Result \"*\"]\n\n1. e4 {Some text @@StartFEN@@4k3/8/8/8/8/8/8/4K3 w - - 0 1@@EndFEN@@ more text} e5\n*"
 	output := extractMoveText(input, false, true, false)
 
 	// Markers should be removed
@@ -1980,7 +1980,7 @@ func TestExtractMoveText_InlineFENMarkers(t *testing.T) {
 	if !strings.Contains(output, "**FEN:**") {
 		t.Error("FEN should be formatted with **FEN:** label")
 	}
-	if !strings.Contains(output, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR") {
+	if !strings.Contains(output, "4k3/8/8/8/8/8/8/4K3") {
 		t.Error("FEN value should be present")
 	}
 
@@ -1995,7 +1995,7 @@ func TestExtractMoveText_InlineFENMarkers(t *testing.T) {
 
 // Test inline FEN markers with inline-images flag
 func TestExtractMoveText_InlineFENMarkersWithImages(t *testing.T) {
-	input := "[Result \"*\"]\n\n1. e4 {Text @@StartFEN@@rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1@@EndFEN@@ end} e5\n*"
+	input := "[Result \"*\"]\n\n1. e4 {Text @@StartFEN@@4k3/8/8/8/8/8/8/4K3 w - - 0 1@@EndFEN@@ end} e5\n*"
 	output := extractMoveText(input, true, true, false)
 
 	// Markers should be removed
@@ -2010,8 +2010,52 @@ func TestExtractMoveText_InlineFENMarkersWithImages(t *testing.T) {
 	if strings.Contains(output, "**FEN:**") {
 		t.Error("FEN should NOT have **FEN:** label in inlineImages mode")
 	}
-	if !strings.Contains(output, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR") {
+	if !strings.Contains(output, "4k3/8/8/8/8/8/8/4K3") {
 		t.Error("FEN value should be present")
+	}
+}
+
+// Test inline FEN markers: starting position FEN should be skipped
+func TestExtractMoveText_InlineFEN_StartingPositionSkipped(t *testing.T) {
+	input := "[Result \"*\"]\n\n1. e4 {Start @@StartFEN@@rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1@@EndFEN@@ end} e5\n*"
+	output := extractMoveText(input, false, true, false)
+
+	// Starting position FEN should NOT appear
+	if strings.Contains(output, "**FEN:**") {
+		t.Error("Starting position FEN should not be output")
+	}
+	if strings.Contains(output, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR") {
+		t.Error("Starting position FEN string should not appear")
+	}
+
+	// Markers should be removed
+	if strings.Contains(output, "@@StartFEN@@") {
+		t.Error("@@StartFEN@@ marker should be removed")
+	}
+	if strings.Contains(output, "@@EndFEN@@") {
+		t.Error("@@EndFEN@@ marker should be removed")
+	}
+
+	// Comment text should still be present
+	if !strings.Contains(output, "Start") {
+		t.Error("Comment text before FEN should be present")
+	}
+	if !strings.Contains(output, "end") {
+		t.Error("Comment text after FEN should be present")
+	}
+}
+
+// Test inline FEN markers: starting position with inline-images
+func TestExtractMoveText_InlineFEN_StartingPositionWithImages(t *testing.T) {
+	input := "[Result \"*\"]\n\n1. e4 {Start @@StartFEN@@rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1@@EndFEN@@ end} e5\n*"
+	output := extractMoveText(input, true, true, false)
+
+	// Starting position FEN should NOT appear (even in inline-images mode)
+	if strings.Contains(output, "**FEN:**") {
+		t.Error("Starting position FEN should not have **FEN:** label")
+	}
+	if strings.Contains(output, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR") {
+		t.Error("Starting position FEN string should not appear in inline-images mode")
 	}
 }
 
@@ -2120,7 +2164,7 @@ func TestMain_InlineImagesWithInlineFEN(t *testing.T) {
 [Black "Player B"]
 [Result "*"]
 
-1. e4 {Start @@StartFEN@@rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1@@EndFEN@@ end} e5 *`
+1. e4 {Start @@StartFEN@@4k3/8/8/8/8/8/8/4K3 w - - 0 1@@EndFEN@@ end} e5 *`
 
 	os.WriteFile(inputFile, []byte(input), 0644)
 	defer os.Remove(inputFile)
@@ -2152,7 +2196,7 @@ func TestMain_InlineImagesWithInlineFEN(t *testing.T) {
 	}
 
 	// Should NOT contain raw FEN string
-	if strings.Contains(contentStr, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR") {
+	if strings.Contains(contentStr, "4k3/8/8/8/8/8/8/4K3") {
 		t.Error("Raw FEN string should not be present when -inline-images is set")
 	}
 
