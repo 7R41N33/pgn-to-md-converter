@@ -677,6 +677,9 @@ reMove := regexp.MustCompile(`^(\d+)(\.{1,3})\s+(.+)$`)
 	reBracket := regexp.MustCompile(`@@StartBracket@@([^@]+)@@End\s*Bracket@@`)
 	resultStr = reBracket.ReplaceAllString(resultStr, `$1`)
 
+	// Remove trailing * result marker (unspecified result)
+	resultStr = regexp.MustCompile(`\s*\*\s*$`).ReplaceAllString(resultStr, "")
+
 	// Add FEN at the beginning if present (with empty line after)
 	if fen != "" {
 		if inlineImages {

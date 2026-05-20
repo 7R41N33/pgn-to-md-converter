@@ -470,8 +470,8 @@ func TestExtractMoveText_ResultBlackWins(t *testing.T) {
 func TestExtractMoveText_ResultOngoing(t *testing.T) {
 	input := "[Result \"*\"]\n\n1. e4 e5 *"
 	output := extractMoveText(input, false, true, false)
-	if !strings.Contains(output, "*") {
-		t.Error("Result * should remain as *")
+	if strings.HasSuffix(strings.TrimSpace(output), "*") {
+		t.Error("Trailing * should be removed")
 	}
 	if strings.Contains(output, "(Game continues") {
 		t.Error("Should not show 'Game continues' text for * result")
@@ -2248,5 +2248,65 @@ func TestMain_InlineImagesNoExam_NoPrefix(t *testing.T) {
 	// Should NOT contain **FEN:** prefix when inline-images is used (even without exam)
 	if strings.Contains(contentStr, "**FEN:**") {
 		t.Error("**FEN:** prefix should not be present when -inline-images is set")
+	}
+}
+
+// Test trailing * result marker removed from end of moves
+func TestExtractMoveText_TrailingStarRemoved(t *testing.T) {
+	input := "[Result \"*\"]\n\n1. e4 e5 *"
+	output := extractMoveText(input, false, true, false)
+	if strings.HasSuffix(strings.TrimSpace(output), "*") {
+		t.Errorf("Trailing * should be removed, got:\n%s", output)
+	}
+}
+
+// Test trailing * on its own line removed
+func TestExtractMoveText_TrailingStarOwnLine(t *testing.T) {
+	input := "[Result \"*\"]\n\n1. e4 e5\n*"
+	output := extractMoveText(input, false, true, false)
+	if strings.HasSuffix(strings.TrimSpace(output), "*") {
+		t.Errorf("Trailing * on own line should be removed, got:\n%s", output)
+	}
+}
+
+// Test trailing * with whitespace removed
+func TestExtractMoveText_TrailingStarWithWhitespace(t *testing.T) {
+	input := "[Result \"*\"]\n\n1. e4 e5 *   "
+	output := extractMoveText(input, false, true, false)
+	if strings.HasSuffix(strings.TrimSpace(output), "*") {
+		t.Errorf("Trailing * with whitespace should be removed, got:\n%s", output)
+	}
+}
+
+// Test * in middle of text preserved
+func TestExtractMoveText_StarInMiddlePreserved(t *testing.T) {
+	input := "[Result \"*\"]\n\n1. e4 {Some * text here} e5 *"
+	output := extractMoveText(input, false, true, false)
+	if !strings.Contains(output, "*") {
+		t.Error("Star in middle of comment should be preserved")
+	}
+}
+
+// Test no change when there's no trailing *
+func TestExtractMoveText_NoTrailingStar(t *testing.T) {
+	input := "[Result \"1-0\"]\n\n1. e4 e5 1-0"
+	output := extractMoveText(input, false, true, false)
+	if !strings.Contains(output, "1-0 (White wins)") {
+		t.Error("Result 1-0 should be preserved")
+	}
+}
+
+// Test trailing * removed with comments present
+func TestExtractMoveText_TrailingStarWithComments(t *testing.T) {
+	input := "[Result \"*\"]\n\n1. e4 {Good} e5 {Reply} *"
+	output := extractMoveText(input, false, true, false)
+	if strings.HasSuffix(strings.TrimSpace(output), "*") {
+		t.Errorf("Trailing * with comments should be removed, got:\n%s", output)
+	}
+	if !strings.Contains(output, "Good") {
+		t.Error("Comment 'Good' should be preserved")
+	}
+	if !strings.Contains(output, "Reply") {
+		t.Error("Comment 'Reply' should be preserved")
 	}
 }
