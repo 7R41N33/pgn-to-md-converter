@@ -484,7 +484,20 @@ func extractMoveText(gameText string, inlineImages bool, numberedLists bool, das
 		content = formatLists(content, numberedLists, dashLists)
 		return content
 	})
-  
+	
+	// Handle inline FEN markers (@@StartFEN@@...@@EndFEN@@)
+	inlineFENRe := regexp.MustCompile(`@@StartFEN@@([^@]*)@@EndFEN@@`)
+	movetext = inlineFENRe.ReplaceAllStringFunc(movetext, func(match string) string {
+		fenPart := strings.TrimSpace(match[len("@@StartFEN@@") : len(match)-len("@@EndFEN@@")])
+		if fenPart == "" {
+			return ""
+		}
+		if inlineImages {
+			return "\n" + fenPart + "\n"
+		}
+		return "\n**FEN:** `" + fenPart + "`\n"
+	})
+
 	// FEN will be added at the end, after formatLists is applied
 	// This prevents formatLists from breaking the FEN string
 

@@ -1963,6 +1963,205 @@ func TestMain_ExamWithFEN_NoInlineImages_NoPrefix(t *testing.T) {
 	}
 }
 
+// Test inline FEN markers: basic handling
+func TestExtractMoveText_InlineFENMarkers(t *testing.T) {
+	input := "[Result \"*\"]\n\n1. e4 {Some text @@StartFEN@@rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1@@EndFEN@@ more text} e5\n*"
+	output := extractMoveText(input, false, true, false)
+
+	// Markers should be removed
+	if strings.Contains(output, "@@StartFEN@@") {
+		t.Error("@@StartFEN@@ marker should be removed")
+	}
+	if strings.Contains(output, "@@EndFEN@@") {
+		t.Error("@@EndFEN@@ marker should be removed")
+	}
+
+	// FEN should be formatted with **FEN:** label
+	if !strings.Contains(output, "**FEN:**") {
+		t.Error("FEN should be formatted with **FEN:** label")
+	}
+	if !strings.Contains(output, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR") {
+		t.Error("FEN value should be present")
+	}
+
+	// Comment text should still be present
+	if !strings.Contains(output, "Some text") {
+		t.Error("Comment text before FEN should be present")
+	}
+	if !strings.Contains(output, "more text") {
+		t.Error("Comment text after FEN should be present")
+	}
+}
+
+// Test inline FEN markers with inline-images flag
+func TestExtractMoveText_InlineFENMarkersWithImages(t *testing.T) {
+	input := "[Result \"*\"]\n\n1. e4 {Text @@StartFEN@@rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1@@EndFEN@@ end} e5\n*"
+	output := extractMoveText(input, true, true, false)
+
+	// Markers should be removed
+	if strings.Contains(output, "@@StartFEN@@") {
+		t.Error("@@StartFEN@@ marker should be removed")
+	}
+	if strings.Contains(output, "@@EndFEN@@") {
+		t.Error("@@EndFEN@@ marker should be removed")
+	}
+
+	// FEN should be present WITHOUT **FEN:** label (inlineImages mode)
+	if strings.Contains(output, "**FEN:**") {
+		t.Error("FEN should NOT have **FEN:** label in inlineImages mode")
+	}
+	if !strings.Contains(output, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR") {
+		t.Error("FEN value should be present")
+	}
+}
+
+// Test inline FEN markers: empty FEN content
+func TestExtractMoveText_InlineFENMarkers_Empty(t *testing.T) {
+	input := "[Result \"*\"]\n\n1. e4 {Text @@StartFEN@@@@EndFEN@@ end} e5\n*"
+	output := extractMoveText(input, false, true, false)
+
+	if strings.Contains(output, "@@StartFEN@@") {
+		t.Error("Empty @StartFEN@@...@@EndFEN@@ should be removed")
+	}
+}
+
+// Test inline FEN markers with full example from real PGN
+func TestExtractMoveText_InlineFENMarkers_FullExample(t *testing.T) {
+	input := `[Event "?"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "1. Noteboom 4.Nc3 dxc4 − 5th Moves"]
+[Black "Noteboom 4.Nc3 dxc4 5.Bg5 #1"]
+[Result "*"]
+
+1. d4 d5 2. c4 e6 3. Nf3 c6 4. Nc3 dxc4
+{ The Noteboom Variation text. }
+5. Bg5
+{ Visual description. }
+5... Be7
+{ Materialistic note. }
+6. Bxe7 Nxe7
+{ Simplest. White is probably better off playing the more modest @@StartFEN@@rnb1k1nr/pp2qppp/2p1p3/8/2pP4/2N2N2/PP2PPPP/R2QKB1R w KQkq - 0 7@@EndFEN@@  7.e3 b5 8.a4 , which does seem to give good compensation. }
+7. e4 { Gambit-style play. } 7... b5 8. a4 Bb7
+{ Black holds a pleasant advantage. } 9. axb5 cxb5 10. Nxb5 Bxe4 11. Bxc4 O-O { White is left with an ugly isolated pawn. } *`
+
+	output := extractMoveText(input, false, true, false)
+
+	// Markers should be removed
+	if strings.Contains(output, "@@StartFEN@@") {
+		t.Error("@@StartFEN@@ marker should be removed")
+	}
+	if strings.Contains(output, "@@EndFEN@@") {
+		t.Error("@@EndFEN@@ marker should be removed")
+	}
+
+	// FEN should be formatted with **FEN:** label
+	if !strings.Contains(output, "**FEN:**") {
+		t.Errorf("FEN should be formatted with **FEN:** label.\nOutput:\n%s", output)
+	}
+	if !strings.Contains(output, "rnb1k1nr/pp2qppp/2p1p3/8/2pP4/2N2N2/PP2PPPP/R2QKB1R") {
+		t.Error("FEN value should be present")
+	}
+
+	// FEN should be on its own line
+	lines := strings.Split(output, "\n")
+	fenLineFound := false
+	for _, line := range lines {
+		if strings.Contains(line, "**FEN:**") {
+			fenLineFound = true
+		}
+	}
+	if !fenLineFound {
+		t.Error("**FEN:** line not found in output")
+	}
+
+	// Comment text should be preserved
+	if !strings.Contains(output, "Simplest.") {
+		t.Error("Comment text before FEN should be preserved")
+	}
+}
+
+// Test inline FEN markers: no conflict with regular FEN tag
+func TestExtractMoveText_InlineFENWithRegularFEN(t *testing.T) {
+	input := `[Event "Test"]
+[Result "*"]
+[FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"]
+
+1. e4 {Comment with @@StartFEN@@4k3/8/8/8/8/8/8/4K3 w - - 0 1@@EndFEN@@ inline} e5 *`
+
+	output := extractMoveText(input, false, true, false)
+
+	// Both FENs should be present
+	// The regular FEN (from tag) should appear as **FEN:** at the start
+	if !strings.Contains(output, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR") {
+		t.Error("Regular FEN from tag should be present")
+	}
+
+	// The inline FEN should also be formatted
+	if !strings.Contains(output, "4k3/8/8/8/8/8/8/4K3") {
+		t.Error("Inline FEN should be present")
+	}
+
+	// Both should have **FEN:** prefix
+	count := strings.Count(output, "**FEN:**")
+	if count != 2 {
+		t.Errorf("Expected 2 **FEN:** occurrences (one for tag, one for inline), got %d", count)
+	}
+}
+
+// Test inline-images with inline FEN: image replacement works
+func TestMain_InlineImagesWithInlineFEN(t *testing.T) {
+	inputFile := "/tmp/test_inline_fen_img.pgn"
+	outputFile := "/tmp/test_inline_fen_img_out.md"
+
+	input := `[Event "?"]
+[White "Player A"]
+[Black "Player B"]
+[Result "*"]
+
+1. e4 {Start @@StartFEN@@rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1@@EndFEN@@ end} e5 *`
+
+	os.WriteFile(inputFile, []byte(input), 0644)
+	defer os.Remove(inputFile)
+	defer os.Remove(outputFile)
+
+	binPath := "../../../bin/build_markdown"
+	cmd := exec.Command(binPath, "-src", inputFile, "-out", outputFile, "-inline-images")
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to run binary: %v", err)
+	}
+
+	content, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatal("Output file not created")
+	}
+	contentStr := string(content)
+
+	// Markers should be removed
+	if strings.Contains(contentStr, "@@StartFEN@@") {
+		t.Error("@@StartFEN@@ marker should be removed")
+	}
+	if strings.Contains(contentStr, "@@EndFEN@@") {
+		t.Error("@@EndFEN@@ marker should be removed")
+	}
+
+	// Should contain base64 data URI format (from replaceFENWithImages)
+	if !strings.Contains(contentStr, "data:image/png;base64,") {
+		t.Error("FEN should be converted to base64 image when -inline-images is set")
+	}
+
+	// Should NOT contain raw FEN string
+	if strings.Contains(contentStr, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR") {
+		t.Error("Raw FEN string should not be present when -inline-images is set")
+	}
+
+	// Should NOT contain **FEN:** prefix
+	if strings.Contains(contentStr, "**FEN:**") {
+		t.Error("**FEN:** prefix should not be present with -inline-images")
+	}
+}
+
 // Test inline-images without exam mode: no **FEN:** prefix
 func TestMain_InlineImagesNoExam_NoPrefix(t *testing.T) {
 	inputFile := "/tmp/test_inline_no_exam.pgn"
