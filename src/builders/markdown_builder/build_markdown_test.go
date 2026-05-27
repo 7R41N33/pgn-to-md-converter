@@ -372,15 +372,33 @@ func TestFixCommentSpacing_EdgeCases(t *testing.T) {
 func TestExtractMoveText_WithFEN(t *testing.T) {
 	input := `[Event "Test"]
 [Result "*"]
-[FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"]
+[FEN "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"]
 
 1. e4 e5 *`
 	output := extractMoveText(input, false, true, false)
 	if !strings.Contains(output, "**FEN:**") {
 		t.Error("FEN should be extracted and formatted")
 	}
-	if !strings.Contains(output, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR") {
+	if !strings.Contains(output, "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR") {
 		t.Error("FEN value should be present")
+	}
+}
+
+func TestExtractMoveText_StartingPositionFENSkipped(t *testing.T) {
+	input := `[Event "Test"]
+[Result "*"]
+[FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"]
+
+1. e4 e5 *`
+	output := extractMoveText(input, false, true, false)
+	if strings.Contains(output, "**FEN:**") {
+		t.Error("Starting position FEN tag should NOT produce **FEN:** in output")
+	}
+	if strings.Contains(output, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR") {
+		t.Error("Starting position FEN value should NOT appear in output")
+	}
+	if !strings.Contains(output, `1\. e4`) {
+		t.Error("Moves should still be present even when starting FEN is skipped")
 	}
 }
 
@@ -599,7 +617,7 @@ func TestFixCommentSpacing_MoveAtEndOfComment(t *testing.T) {
 func TestExtractMoveText_NoDuplicateFEN(t *testing.T) {
 	input := `[Event "Test"]
 [Result "*"]
-[FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"]
+[FEN "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"]
 
 1. e4 e5 *`
 	output := extractMoveText(input, false, true, false)
@@ -610,7 +628,7 @@ func TestExtractMoveText_NoDuplicateFEN(t *testing.T) {
 		t.Errorf("FEN should appear only once, but found %d times:\n%s", count, output)
 	}
 	
-	if !strings.Contains(output, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR") {
+	if !strings.Contains(output, "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR") {
 		t.Error("FEN value should be present in output")
 	}
 }
@@ -620,7 +638,7 @@ func TestMain_NoDuplicateFEN(t *testing.T) {
 [White "Player A"]
 [Black "Player B"]
 [Result "*"]
-[FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"]
+[FEN "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"]
 
 1. e4 e5 *`
 	
@@ -633,7 +651,7 @@ func TestMain_NoDuplicateFEN(t *testing.T) {
 		t.Errorf("FEN should appear only once in extractMoveText output, but found %d times", count)
 	}
 	
-	if !strings.Contains(output, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR") {
+	if !strings.Contains(output, "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR") {
 		t.Error("FEN value should be present in output")
 	}
 }
@@ -709,7 +727,7 @@ func TestFixCommentSpacing_MoveFollowedByText(t *testing.T) {
 func TestFENEmptyLineInOutput(t *testing.T) {
 	input := `[Event "Test"]
 [Result "*"]
-[FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"]
+[FEN "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"]
 
 1. e4 e5 *`
 	output := extractMoveText(input, false, true, false)
@@ -1751,7 +1769,7 @@ func TestMain_ExamFilterByBlack(t *testing.T) {
 [White "Chapter 3"]
 [Black "Exact Match Title"]
 [Result "*"]
-[FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"]
+[FEN "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"]
 1. -- *`
 
 	os.WriteFile(inputFile, []byte(input), 0644)
@@ -1780,7 +1798,7 @@ func TestMain_ExamFilterByBlack(t *testing.T) {
 		t.Errorf("Third chapter with Black='Exact Match Title' should be included. Got:\n%s", contentStr)
 	}
 	// Should contain FEN from third chapter (exam mode with FEN outputs only FEN)
-	if !strings.Contains(contentStr, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR") {
+	if !strings.Contains(contentStr, "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR") {
 		t.Error("FEN should be present from third chapter")
 	}
 
@@ -1799,7 +1817,7 @@ func TestMain_ExamWithFENAndInlineImages(t *testing.T) {
 [White "Exam Time!"]
 [Black "Test"]
 [Result "*"]
-[FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"]
+[FEN "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"]
 [SetUp "1"]
 1. -- *`
 
@@ -1825,7 +1843,7 @@ func TestMain_ExamWithFENAndInlineImages(t *testing.T) {
 	}
 
 	// Should NOT contain raw FEN string
-	if strings.Contains(contentStr, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR") {
+	if strings.Contains(contentStr, "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR") {
 		t.Error("Raw FEN string should not be present when -inline-images is set")
 	}
 
@@ -1936,7 +1954,7 @@ func TestMain_ExamWithFEN_NoInlineImages_NoPrefix(t *testing.T) {
 [White "Exam Time!"]
 [Black "Test"]
 [Result "*"]
-[FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"]
+[FEN "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"]
 [SetUp "1"]
 1. -- *`
 
@@ -1957,7 +1975,7 @@ func TestMain_ExamWithFEN_NoInlineImages_NoPrefix(t *testing.T) {
 	contentStr := string(content)
 
 	// In exam mode without inline-images, FEN should be present but WITHOUT **FEN:** prefix
-	if !strings.Contains(contentStr, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR") {
+	if !strings.Contains(contentStr, "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR") {
 		t.Error("FEN should be present in output")
 	}
 
@@ -2134,7 +2152,7 @@ func TestExtractMoveText_InlineFENMarkers_FullExample(t *testing.T) {
 func TestExtractMoveText_InlineFENWithRegularFEN(t *testing.T) {
 	input := `[Event "Test"]
 [Result "*"]
-[FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"]
+[FEN "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"]
 
 1. e4 {Comment with @@StartFEN@@4k3/8/8/8/8/8/8/4K3 w - - 0 1@@EndFEN@@ inline} e5 *`
 
@@ -2142,7 +2160,7 @@ func TestExtractMoveText_InlineFENWithRegularFEN(t *testing.T) {
 
 	// Both FENs should be present
 	// The regular FEN (from tag) should appear as **FEN:** at the start
-	if !strings.Contains(output, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR") {
+	if !strings.Contains(output, "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR") {
 		t.Error("Regular FEN from tag should be present")
 	}
 
@@ -2219,7 +2237,7 @@ func TestMain_InlineImagesNoExam_NoPrefix(t *testing.T) {
 [White "Player A"]
 [Black "Player B"]
 [Result "*"]
-[FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"]
+[FEN "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"]
 [SetUp "1"]
 1. e4 e5 *`
 
@@ -2245,7 +2263,7 @@ func TestMain_InlineImagesNoExam_NoPrefix(t *testing.T) {
 	}
 
 	// Should NOT contain raw FEN string
-	if strings.Contains(contentStr, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR") {
+	if strings.Contains(contentStr, "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR") {
 		t.Error("Raw FEN string should not be present when -inline-images is set")
 	}
 
@@ -2312,5 +2330,100 @@ func TestExtractMoveText_TrailingStarWithComments(t *testing.T) {
 	}
 	if !strings.Contains(output, "Reply") {
 		t.Error("Comment 'Reply' should be preserved")
+	}
+}
+
+// Test that starting position FEN is not output in non-exam mode via the binary
+func TestMain_StartingPositionFENNotInOutput(t *testing.T) {
+	inputFile := "/tmp/test_starting_fen.pgn"
+	outputFile := "/tmp/test_starting_fen_out.md"
+
+	input := `[Event "?"]
+[White "Player A"]
+[Black "Player B"]
+[Result "*"]
+[FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"]
+[SetUp "1"]
+1. e4 e5 *`
+
+	os.WriteFile(inputFile, []byte(input), 0644)
+	defer os.Remove(inputFile)
+	defer os.Remove(outputFile)
+
+	binPath := "../../../bin/build_markdown"
+	cmd := exec.Command(binPath, "-src", inputFile, "-out", outputFile)
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to run binary: %v", err)
+	}
+
+	content, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatal("Output file not created")
+	}
+	contentStr := string(content)
+
+	// Should NOT contain starting FEN
+	if strings.Contains(contentStr, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR") {
+		t.Error("Starting position FEN should NOT be in output")
+	}
+
+	// Should NOT contain **FEN:** prefix
+	if strings.Contains(contentStr, "**FEN:**") {
+		t.Error("**FEN:** should not appear for starting position FEN")
+	}
+
+	// Moves should still be present
+	if !strings.Contains(contentStr, "e4") {
+		t.Error("Moves should still be present in output")
+	}
+}
+
+// Test that starting position FEN is not output in exam mode, but moves still are
+func TestMain_ExamModeWithStartingFEN_Skipped(t *testing.T) {
+	inputFile := "/tmp/test_exam_starting_fen.pgn"
+	outputFile := "/tmp/test_exam_starting_fen_out.md"
+
+	input := `[Event "?"]
+[White "Test Player"]
+[Black "Opponent"]
+[Result "*"]
+[FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"]
+[SetUp "1"]
+1. e4 e5 *`
+
+	os.WriteFile(inputFile, []byte(input), 0644)
+	defer os.Remove(inputFile)
+	defer os.Remove(outputFile)
+
+	binPath := "../../../bin/build_markdown"
+	cmd := exec.Command(binPath, "-src", inputFile, "-out", outputFile, "-exam", "Test Player")
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to run binary: %v", err)
+	}
+
+	content, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatal("Output file not created")
+	}
+	contentStr := string(content)
+
+	// Should NOT contain starting FEN
+	if strings.Contains(contentStr, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR") {
+		t.Error("Starting position FEN should NOT be in output even in exam mode")
+	}
+
+	// Should NOT contain **FEN:** prefix
+	if strings.Contains(contentStr, "**FEN:**") {
+		t.Error("**FEN:** should not appear for starting position FEN in exam mode")
+	}
+
+	// Title should be present
+	if !strings.Contains(contentStr, "Test Player") {
+		t.Error("Title should be present in output")
+	}
+
+	// Moves should be present (fallback to normal formatting when starting FEN in exam mode)
+	if !strings.Contains(contentStr, "e4") {
+		t.Error("Moves should be present in output when starting FEN is skipped in exam mode")
 	}
 }

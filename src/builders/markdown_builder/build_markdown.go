@@ -680,8 +680,8 @@ reMove := regexp.MustCompile(`^(\d+)(\.{1,3})\s+(.+)$`)
 	// Remove trailing * result marker (unspecified result)
 	resultStr = regexp.MustCompile(`\s*\*\s*$`).ReplaceAllString(resultStr, "")
 
-	// Add FEN at the beginning if present (with empty line after)
-	if fen != "" {
+	// Add FEN at the beginning if present and not starting position (with empty line after)
+	if fen != "" && fen != startingPositionFEN {
 		if inlineImages {
 			// When using inline images, just add FEN without the label
 			// It will be replaced by replaceFENWithImages later
@@ -824,11 +824,13 @@ func main() {
 			output += "## " + title + "\n\n"
 		}
 
-		// Exam mode: if chapter has FEN, output only FEN (no prefix)
+		// Exam mode: if chapter has FEN (and not starting position), output only FEN (no prefix)
+		examFENOnly := false
 		if *exam != "" && hasFEN {
 			fenRe := regexp.MustCompile(`\[FEN\s+"([^"]*)"\]`)
 			fenMatch := fenRe.FindStringSubmatch(g)
-			if len(fenMatch) > 1 {
+			if len(fenMatch) > 1 && fenMatch[1] != startingPositionFEN {
+				examFENOnly = true
 				fen := fenMatch[1]
 				if *inlineImages {
 					b64, err := fenlib.GenerateDiagramBase64(fen)
@@ -838,7 +840,9 @@ func main() {
 				}
 				output += fen + "\n\n"
 			}
-		} else {
+		}
+
+		if !examFENOnly {
 			moves := extractMoveText(g, *inlineImages, *numberedLists, *dashLists)
 
 			// Replace FEN strings with inline base64 images if flag is set
