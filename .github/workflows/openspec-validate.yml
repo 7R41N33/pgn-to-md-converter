@@ -31,13 +31,8 @@ jobs:
         run: npm install -g @fission-ai/openspec@latest
 
       - name: Validate specifications
-        run: openspec validate
+        run: openspec validate --all
 
-      - name: Generate validation report
+      - name: List specifications
         if: always()
-        run: |
-          echo "## 📜 OpenSpec Validation Report" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| File | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
-          openspec list specs/ --format github-summary >> $GITHUB_STEP_SUMMARY
+        run: openspec list --specs
