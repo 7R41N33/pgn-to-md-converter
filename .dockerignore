@@ -1,0 +1,13 @@
+.git
+.gitignore
+node_modules
+tmp/
+Markdowns/
+PGNs/
+.prompts/
+.venv/
+.env
+*.md
+bin/*.go
+openspec/
+.opencode/

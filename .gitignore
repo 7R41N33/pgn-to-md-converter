@@ -9,6 +9,7 @@ Markdowns/*
 !**/tmp/.keep
 !**/tmp/images/.keep
 !**/tmp/images/*.png
+!./tmp/.gitkeep
 
 *.broken
 *.bak
@@ -17,3 +18,7 @@ Markdowns/*
 *.out
 
 src/bin/
+
+# OpenSpec cache & temp
+.openspec/.cache/
+.openspec/tmp/

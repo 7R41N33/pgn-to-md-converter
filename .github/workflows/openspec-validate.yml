@@ -1,0 +1,43 @@
+name: OpenSpec Validation
+
+on:
+  push:
+    branches: [main, master, develop]
+    paths:
+      - 'specs/**'
+      - '.openspec/**'
+      - '.github/workflows/openspec-validate.yml'
+  pull_request:
+    branches: [main, master, develop]
+    paths:
+      - 'specs/**'
+      - '.openspec/**'
+
+jobs:
+  validate:
+    name: Validate OpenSpec
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install OpenSpec CLI
+        run: npm install -g @fission-ai/openspec@latest
+
+      - name: Validate specifications
+        run: openspec validate
+
+      - name: Generate validation report
+        if: always()
+        run: |
+          echo "## 📜 OpenSpec Validation Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| File | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
+          openspec list specs/ --format github-summary >> $GITHUB_STEP_SUMMARY
