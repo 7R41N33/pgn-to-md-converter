@@ -12,6 +12,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"golang.org/x/image/math/fixed"
 )
 
 const (
@@ -100,7 +102,8 @@ func isValidEnPassant(s string) bool {
 }
 
 // GenerateBoard generates a chess board image from a FEN string
-func GenerateBoard(fen string) (*image.RGBA, error) {
+// Optional caption is rendered as centered, word-wrapped text below the board.
+func GenerateBoard(fen string, caption ...string) (*image.RGBA, error) {
 	if err := ValidateFEN(fen); err != nil {
 		return nil, err
 	}
@@ -133,12 +136,29 @@ func GenerateBoard(fen string) (*image.RGBA, error) {
 	borderSize := cellSize/2 + 15 // Half cell border + extra 15px for triangle indicator
 
 	// Image size: board + border on all sides
+	captionText := ""
+	if len(caption) > 0 {
+		captionText = caption[0]
+	}
+
 	imgSize := boardSize + 2*borderSize
-	board := image.NewRGBA(image.Rect(0, 0, imgSize, imgSize))
+	capHeight := 0
+	if captionText != "" {
+		face, err := getCaptionFace()
+		if err == nil {
+			lh := lineHeight(face)
+			maxPx := fixed.I(imgSize)
+			lines := wrapText(face, captionText, maxPx)
+			if len(lines) > 0 {
+				capHeight = captionPad + len(lines)*lh
+			}
+		}
+	}
+	img := image.NewRGBA(image.Rect(0, 0, imgSize, imgSize+capHeight))
 
 	// Fill entire image with white (border)
 	white := color.RGBA{255, 255, 255, 255}
-	draw.Draw(board, board.Bounds(), &image.Uniform{white}, image.Point{}, draw.Src)
+	draw.Draw(img, img.Bounds(), &image.Uniform{white}, image.Point{}, draw.Src)
 
 	// Draw board cells starting at (borderSize, borderSize)
 	lightColor := color.RGBA{240, 217, 181, 255}
@@ -153,12 +173,12 @@ func GenerateBoard(fen string) (*image.RGBA, error) {
 			x0 := borderSize + col*cellSize
 			y0 := borderSize + row*cellSize
 			rect := image.Rect(x0, y0, x0+cellSize, y0+cellSize)
-			draw.Draw(board, rect, &image.Uniform{c}, image.Point{}, draw.Src)
+			draw.Draw(img, rect, &image.Uniform{c}, image.Point{}, draw.Src)
 		}
 	}
 
 	// Add coordinates on the white border
-	addCoordinates(board, cellSize, borderSize)
+	addCoordinates(img, cellSize, borderSize)
 
 	fields := strings.Fields(fen)
 	position := fields[FENPosition]
@@ -175,7 +195,7 @@ func GenerateBoard(fen string) (*image.RGBA, error) {
 					x0 := borderSize + col*cellSize
 					y0 := borderSize + i*cellSize
 					destRect := image.Rect(x0, y0, x0+cellSize, y0+cellSize)
-					drawPiece(board, pieceImg, destRect, pieceWidth, pieceHeight, cellSize)
+					drawPiece(img, pieceImg, destRect, pieceWidth, pieceHeight, cellSize)
 				}
 				col++
 			}
@@ -183,9 +203,16 @@ func GenerateBoard(fen string) (*image.RGBA, error) {
 	}
 
 	// Draw active color indicator (triangle) in bottom-right corner
-	drawActiveColorIndicator(board, borderSize, cellSize, fields[FENActiveColor] == "w")
+	drawActiveColorIndicator(img, borderSize, cellSize, fields[FENActiveColor] == "w")
 
-	return board, nil
+	// Draw caption below the board
+	if captionText != "" {
+		if err := drawCaption(img, captionText, imgSize, imgSize); err != nil {
+			// Font unavailable — caption silently omitted
+		}
+	}
+
+	return img, nil
 }
 
 // drawActiveColorIndicator draws a triangle at the level of h1 square
@@ -310,8 +337,9 @@ func drawTriangle(board *image.RGBA, vertices []image.Point, fillColor color.Col
 }
 
 // GenerateDiagram generates a chess diagram and saves it to a file
-func GenerateDiagram(fen, outputPath string) error {
-	board, err := GenerateBoard(fen)
+// Optional caption is rendered as centered, word-wrapped text below the board.
+func GenerateDiagram(fen, outputPath string, caption ...string) error {
+	board, err := GenerateBoard(fen, caption...)
 	if err != nil {
 		return err
 	}
@@ -327,8 +355,9 @@ func GenerateDiagram(fen, outputPath string) error {
 }
 
 // GenerateDiagramBase64 generates a chess diagram and returns it as a base64-encoded PNG string
-func GenerateDiagramBase64(fen string) (string, error) {
-	board, err := GenerateBoard(fen)
+// Optional caption is rendered as centered, word-wrapped text below the board.
+func GenerateDiagramBase64(fen string, caption ...string) (string, error) {
+	board, err := GenerateBoard(fen, caption...)
 	if err != nil {
 		return "", err
 	}
@@ -342,8 +371,9 @@ func GenerateDiagramBase64(fen string) (string, error) {
 }
 
 // GenerateDiagramToWriter generates a chess diagram and writes PNG to the provided writer
-func GenerateDiagramToWriter(fen string, w io.Writer) error {
-	board, err := GenerateBoard(fen)
+// Optional caption is rendered as centered, word-wrapped text below the board.
+func GenerateDiagramToWriter(fen string, w io.Writer, caption ...string) error {
+	board, err := GenerateBoard(fen, caption...)
 	if err != nil {
 		return err
 	}

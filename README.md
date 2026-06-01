@@ -122,14 +122,14 @@ The `fen_builder` script generates chess position images from FEN strings. Suppo
 ### Via binary (recommended)
 
 ```bash
-./bin/fen_builder <fen_string> [output_path] [--base64]
+./bin/fen_builder <fen_string> [output_path] [--base64] [--caption "text"]
 ```
 
 ### Via source code
 
 ```bash
 cd src/builders/fen_builder/
-go run fen_to_diagram.go <fen_string> [output_path] [--base64]
+go run fen_to_diagram.go <fen_string> [output_path] [--base64] [--caption "text"]
 ```
 
 ### Parameters
@@ -137,6 +137,7 @@ go run fen_to_diagram.go <fen_string> [output_path] [--base64]
 - `<fen_string>` — FEN string (required)
 - `[output_path]` — Path to save the PNG file (default: `tmp/images/diagram.png`)
 - `--base64` — Output the image as base64 to stdout instead of saving to file (optional)
+- `--caption "text"` — Add centered, word-wrapped caption text below the diagram (optional)
 
 ### Examples
 
@@ -146,6 +147,9 @@ go run fen_to_diagram.go <fen_string> [output_path] [--base64]
 
 # Generate and output as base64 (for embedding in HTML/Markdown)
 ./bin/fen_builder "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBKQBNR w KQkq - 0 1" --base64
+
+# Generate a diagram with a Russian caption (word-wraps if too long)
+./bin/fen_builder "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1" output.png --caption "Черные сыграли h5. Какова их идея?"
 ```
 
 ### Description

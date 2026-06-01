@@ -3,6 +3,8 @@ package fenlib
 import (
 	"strings"
 	"testing"
+
+	"golang.org/x/image/math/fixed"
 )
 
 func TestGenerateBoard_StandardStart(t *testing.T) {
@@ -395,6 +397,133 @@ func TestDrawTriangle_Exists(t *testing.T) {
 
 	if !triangleFound {
 		t.Error("Triangle indicator not found in expected area")
+	}
+}
+
+func TestCaption_SingleLine(t *testing.T) {
+	fen := "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1"
+	noCap, err := GenerateBoard(fen)
+	if err != nil {
+		t.Fatalf("Failed to generate board without caption: %v", err)
+	}
+	capBoard, err := GenerateBoard(fen, "Тестовый текст")
+	if err != nil {
+		t.Fatalf("Failed to generate board with caption: %v", err)
+	}
+	if capBoard.Bounds().Dy() <= noCap.Bounds().Dy() {
+		t.Errorf("Caption board height (%d) should be greater than no-caption height (%d)",
+			capBoard.Bounds().Dy(), noCap.Bounds().Dy())
+	}
+}
+
+func TestCaption_EmptyCaption(t *testing.T) {
+	fen := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBKQBNR w KQkq - 0 1"
+	b1, err := GenerateBoard(fen)
+	if err != nil {
+		t.Fatalf("Failed: %v", err)
+	}
+	b2, err := GenerateBoard(fen, "")
+	if err != nil {
+		t.Fatalf("Failed with empty caption: %v", err)
+	}
+	if b1.Bounds().Dx() != b2.Bounds().Dx() || b1.Bounds().Dy() != b2.Bounds().Dy() {
+		t.Errorf("Empty caption should produce same dimensions: no-cap %dx%d, empty-cap %dx%d",
+			b1.Bounds().Dx(), b1.Bounds().Dy(), b2.Bounds().Dx(), b2.Bounds().Dy())
+	}
+}
+
+func TestCaption_MultiLineWrap(t *testing.T) {
+	fen := "8/8/8/8/8/8/8/8 w - - 0 1"
+	longCap := "Это очень длинный текст который должен быть разбит на несколько строк поскольку он не помещается в ширину диаграммы"
+	board, err := GenerateBoard(fen, longCap)
+	if err != nil {
+		t.Fatalf("Failed with long caption: %v", err)
+	}
+	noCap, _ := GenerateBoard(fen)
+	if board.Bounds().Dy() <= noCap.Bounds().Dy() {
+		t.Errorf("Multi-line caption should increase height, got %d vs %d",
+			board.Bounds().Dy(), noCap.Bounds().Dy())
+	}
+}
+
+func TestCaption_CyrillicText(t *testing.T) {
+	fen := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+	russian := "Черные сыграли h5. Какова их идея?"
+	board, err := GenerateBoard(fen, russian)
+	if err != nil {
+		t.Fatalf("Failed with Cyrillic caption: %v", err)
+	}
+	if board == nil {
+		t.Fatal("Board is nil with Cyrillic caption")
+	}
+}
+
+func TestCaption_SingleWordLongerThanWidth(t *testing.T) {
+	fen := "8/8/8/8/8/8/8/8 w - - 0 1"
+	veryLongWord := "ОЧЕНЬДЛИННОЕСЛОВОКОТОРОЕПРЕВЫШАЕТШИРИНУ"
+	board, err := GenerateBoard(fen, veryLongWord)
+	if err != nil {
+		t.Fatalf("Failed with very long word: %v", err)
+	}
+	noCap, _ := GenerateBoard(fen)
+	if board.Bounds().Dy() <= noCap.Bounds().Dy() {
+		t.Errorf("Long word caption should still increase height")
+	}
+}
+
+func TestCaption_UnsupportedGlyph(t *testing.T) {
+	fen := "8/8/8/8/8/8/8/8 w - - 0 1"
+	// Glyph with characters outside supported set
+	weirdText := "Hello £200 ✓"
+	board, err := GenerateBoard(fen, weirdText)
+	if err != nil {
+		t.Fatalf("Failed with unsupported glyphs: %v", err)
+	}
+	if board == nil {
+		t.Fatal("Board is nil with unsupported glyphs")
+	}
+}
+
+func TestWrapText(t *testing.T) {
+	face, err := getCaptionFace()
+	if err != nil {
+		t.Fatalf("getCaptionFace: %v", err)
+	}
+
+	// Test empty string
+	if got := wrapText(face, "", fixed.I(500)); len(got) != 0 {
+		t.Errorf("empty caption should produce 0 lines, got %d", len(got))
+	}
+
+	// Test single line fits
+	if got := wrapText(face, "Short caption", fixed.I(500)); len(got) != 1 {
+		t.Errorf("short caption should fit in 1 line, got %d: %v", len(got), got)
+	}
+
+	// Test word wraps into multiple lines when constrained
+	multiWord := "one two three four five six seven eight nine ten"
+	wide := wrapText(face, multiWord, fixed.I(500))
+	narrow := wrapText(face, multiWord, fixed.I(30))
+	if len(wide) >= len(narrow) {
+		t.Errorf("narrow width should produce more lines than wide; wide=%d, narrow=%d", len(wide), len(narrow))
+	}
+
+	// Test Cyrillic text wraps
+	cyr := "Черные сыграли h5 какова их идея"
+	narrowCyr := wrapText(face, cyr, fixed.I(30))
+	if len(narrowCyr) < 2 {
+		t.Errorf("narrow width with Cyrillic should produce multiple lines, got %d: %v", len(narrowCyr), narrowCyr)
+	}
+
+	// Test single very long word stays on one line
+	long := wrapText(face, "ОЧЕНЬДЛИННОЕСЛОВО", fixed.I(50))
+	if len(long) != 1 {
+		t.Errorf("single word should stay on 1 line even if narrow, got %d", len(long))
+	}
+
+	// Test whitespace-only string
+	if got := wrapText(face, "   ", fixed.I(500)); len(got) != 0 {
+		t.Errorf("whitespace-only should produce 0 lines, got %d", len(got))
 	}
 }
 
