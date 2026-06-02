@@ -75,6 +75,8 @@ The `markdown_builder` script converts PGN files into formatted Markdown. Suppor
 - `-numbered-lists` — Format numbered lists (default: true) (optional)
 - `-dash-lists` — Format dash lists (default: false) (optional)
 - `-exam` — Exam mode: processes only chapters where White or Black **exactly** match the given string. If the chapter contains a FEN — outputs only the FEN. If FEN is absent — applies normal formatting (optional)
+- `-white-except` — Exclude chapters where White field matches. Pipe-separated for multiple values (e.g. `Carlsen|Nakamura`). Applied before `-exam` (optional)
+- `-black-except` — Exclude chapters where Black field matches. Pipe-separated for multiple values. Applied before `-exam` (optional)
 
 ### Examples
 
@@ -102,6 +104,15 @@ The `markdown_builder` script converts PGN files into formatted Markdown. Suppor
 
 # Enable dash list formatting
 ./bin/build_markdown -src input.pgn -out output.md -dash-lists=true
+
+# Exclude chapters where White is Carlsen
+./bin/build_markdown -src input.pgn -out output.md -white-except "Carlsen"
+
+# Exclude chapters where White is Carlsen or Nakamura
+./bin/build_markdown -src input.pgn -out output.md -white-except "Carlsen|Nakamura"
+
+# Exclude chapters where Black is Carlsen, then exam filter on Target
+./bin/build_markdown -src input.pgn -out output.md -black-except "Carlsen" -exam "Target"
 ```
 
 ### Description

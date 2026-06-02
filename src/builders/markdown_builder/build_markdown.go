@@ -246,6 +246,21 @@ func parseGameTags(gameText string) GameTags {
 
 type GameTags map[string]string
 
+func splitNames(s string) []string {
+	if s == "" {
+		return nil
+	}
+	parts := strings.Split(s, "|")
+	var result []string
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			result = append(result, p)
+		}
+	}
+	return result
+}
+
 func translateTags(tags GameTags) GameTags {
 	return tags
 }
@@ -704,10 +719,12 @@ func main() {
 	numberedLists := flag.Bool("numbered-lists", true, "Format numbered lists with 2-space indent (default: true)")
 	dashLists := flag.Bool("dash-lists", false, "Format dash lists with 2-space indent (default: false)")
 	exam := flag.String("exam", "", "Process only chapters where White field exactly matches this value. If chapter contains FEN, output only FEN. Otherwise, format normally.")
+	whiteExcept := flag.String("white-except", "", "Exclude chapters where White field matches. Pipe-separated for multiple values (e.g. \"Carlsen|Nakamura\")")
+	blackExcept := flag.String("black-except", "", "Exclude chapters where Black field matches. Pipe-separated for multiple values (e.g. \"Carlsen|Nakamura\")")
 	flag.Parse()
 
 	if *src == "" || *out == "" {
-		fmt.Fprintf(os.Stderr, "Usage: %s -src <pgn_path> -out <md_path> [-skip <n>] [-chapters <n>] [-chapter-numbers <list>] [-inline-images]\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Usage: %s -src <pgn_path> -out <md_path> [-skip <n>] [-chapters <n>] [-chapter-numbers <list>] [-inline-images] [-white-except <name>] [-black-except <name>]\n", os.Args[0])
 		os.Exit(1)
 	}
 
@@ -735,6 +752,7 @@ func main() {
 	output := ""
 	chapterNum := 0
 	var prevWhite string
+chapterLoop:
 	for i, g := range games {
 		// If chapter-numbers is provided, filter by index (1-based)
 		if len(chapterNumbers) > 0 {
@@ -755,7 +773,27 @@ func main() {
 		}
 
 		tags := parseGameTags(g)
-		
+
+		// If white-except is set, skip chapters where White matches any excluded name
+		if *whiteExcept != "" {
+			rawWhite := strings.TrimSpace(tags["White"])
+			for _, name := range splitNames(*whiteExcept) {
+				if rawWhite == name {
+					continue chapterLoop
+				}
+			}
+		}
+
+		// If black-except is set, skip chapters where Black matches any excluded name
+		if *blackExcept != "" {
+			rawBlack := strings.TrimSpace(tags["Black"])
+			for _, name := range splitNames(*blackExcept) {
+				if rawBlack == name {
+					continue chapterLoop
+				}
+			}
+		}
+
 		// If exam filter is set, check if White or Black matches exactly
 		if *exam != "" {
 			rawWhite := strings.TrimSpace(tags["White"])

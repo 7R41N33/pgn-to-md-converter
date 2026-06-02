@@ -2427,3 +2427,307 @@ func TestMain_ExamModeWithStartingFEN_Skipped(t *testing.T) {
 		t.Error("Moves should be present in output when starting FEN is skipped in exam mode")
 	}
 }
+
+// Test white-except: single value excludes matching chapter
+func TestMain_WhiteExceptSingle(t *testing.T) {
+	inputFile := "/tmp/test_white_except_single.pgn"
+	outputFile := "/tmp/test_white_except_single_out.md"
+
+	input := `[Event "?"]
+[White "Carlsen"]
+[Black "Nakamura"]
+[Result "*"]
+1. e4 e5 *
+
+[Event "?"]
+[White "Nakamura"]
+[Black "Carlsen"]
+[Result "*"]
+1. d4 d5 *`
+
+	os.WriteFile(inputFile, []byte(input), 0644)
+	defer os.Remove(inputFile)
+	defer os.Remove(outputFile)
+
+	binPath := "../../../bin/build_markdown"
+	cmd := exec.Command(binPath, "-src", inputFile, "-out", outputFile, "-white-except", "Carlsen")
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to run binary: %v", err)
+	}
+
+	content, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatal("Output file not created")
+	}
+	contentStr := string(content)
+
+	if strings.Contains(contentStr, "Chapter 1:") {
+		t.Error("Chapter with Carlsen as White should be excluded")
+	}
+	if !strings.Contains(contentStr, "Nakamura") {
+		t.Error("Chapter with Nakamura as White should be included")
+	}
+}
+
+// Test white-except: multiple pipe-separated values exclude all matching chapters
+func TestMain_WhiteExceptMultiple(t *testing.T) {
+	inputFile := "/tmp/test_white_except_multiple.pgn"
+	outputFile := "/tmp/test_white_except_multiple_out.md"
+
+	input := `[Event "?"]
+[White "Carlsen"]
+[Black "Nakamura"]
+[Result "*"]
+1. e4 e5 *
+
+[Event "?"]
+[White "Nakamura"]
+[Black "Carlsen"]
+[Result "*"]
+1. d4 d5 *
+
+[Event "?"]
+[White "Giri"]
+[Black "Ding"]
+[Result "*"]
+1. Nf3 Nf6 *`
+
+	os.WriteFile(inputFile, []byte(input), 0644)
+	defer os.Remove(inputFile)
+	defer os.Remove(outputFile)
+
+	binPath := "../../../bin/build_markdown"
+	cmd := exec.Command(binPath, "-src", inputFile, "-out", outputFile, "-white-except", "Carlsen|Nakamura")
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to run binary: %v", err)
+	}
+
+	content, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatal("Output file not created")
+	}
+	contentStr := string(content)
+
+	if strings.Contains(contentStr, "Carlsen") {
+		t.Error("Chapter with Carlsen as White should be excluded")
+	}
+	if strings.Contains(contentStr, "Nakamura") {
+		t.Error("Chapter with Nakamura as White should be excluded")
+	}
+	if !strings.Contains(contentStr, "Giri") {
+		t.Error("Chapter with Giri as White should be included")
+	}
+}
+
+// Test white-except: non-matching chapters are kept
+func TestMain_WhiteExceptNonMatching(t *testing.T) {
+	inputFile := "/tmp/test_white_except_nonmatch.pgn"
+	outputFile := "/tmp/test_white_except_nonmatch_out.md"
+
+	input := `[Event "?"]
+[White "Carlsen"]
+[Black "Nakamura"]
+[Result "*"]
+1. e4 e5 *
+
+[Event "?"]
+[White "Nakamura"]
+[Black "Carlsen"]
+[Result "*"]
+1. d4 d5 *`
+
+	os.WriteFile(inputFile, []byte(input), 0644)
+	defer os.Remove(inputFile)
+	defer os.Remove(outputFile)
+
+	binPath := "../../../bin/build_markdown"
+	cmd := exec.Command(binPath, "-src", inputFile, "-out", outputFile, "-white-except", "Giri")
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to run binary: %v", err)
+	}
+
+	content, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatal("Output file not created")
+	}
+	contentStr := string(content)
+
+	if !strings.Contains(contentStr, "Carlsen") {
+		t.Error("Non-matching chapter with Carlsen as White should be included")
+	}
+	if !strings.Contains(contentStr, "Nakamura") {
+		t.Error("Non-matching chapter with Nakamura as White should be included")
+	}
+}
+
+// Test both white-except and black-except together
+func TestMain_WhiteAndBlackExcept(t *testing.T) {
+	inputFile := "/tmp/test_white_black_except.pgn"
+	outputFile := "/tmp/test_white_black_except_out.md"
+
+	input := `[Event "?"]
+[White "Carlsen"]
+[Black "Nakamura"]
+[Result "*"]
+1. e4 e5 *
+
+[Event "?"]
+[White "Nakamura"]
+[Black "Giri"]
+[Result "*"]
+1. d4 d5 *
+
+[Event "?"]
+[White "Giri"]
+[Black "Ding"]
+[Result "*"]
+1. Nf3 Nf6 *`
+
+	os.WriteFile(inputFile, []byte(input), 0644)
+	defer os.Remove(inputFile)
+	defer os.Remove(outputFile)
+
+	binPath := "../../../bin/build_markdown"
+	cmd := exec.Command(binPath, "-src", inputFile, "-out", outputFile, "-white-except", "Carlsen", "-black-except", "Giri")
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to run binary: %v", err)
+	}
+
+	content, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatal("Output file not created")
+	}
+	contentStr := string(content)
+
+	// Only chapter 3 (Giri vs Ding) should remain
+	if strings.Contains(contentStr, "Carlsen") {
+		t.Error("Chapter with Carlsen as White should be excluded by white-except")
+	}
+	if strings.Contains(contentStr, "Nakamura") {
+		t.Error("Chapter with Nakamura as White should be excluded by black-except on Giri")
+	}
+	if !strings.Contains(contentStr, "Giri") {
+		t.Error("Chapter with Giri as White (Ding as Black) should be included")
+	}
+	if !strings.Contains(contentStr, "Ding") {
+		t.Error("Chapter with Ding as Black should be included")
+	}
+}
+
+// Test black-except combined with exam (exclusion before inclusion)
+func TestMain_BlackExceptWithExam(t *testing.T) {
+	inputFile := "/tmp/test_black_except_exam.pgn"
+	outputFile := "/tmp/test_black_except_exam_out.md"
+
+	input := `[Event "?"]
+[White "Target"]
+[Black "Carlsen"]
+[Result "*"]
+1. e4 e5 *
+
+[Event "?"]
+[White "Target"]
+[Black "Nakamura"]
+[Result "*"]
+1. d4 d5 *
+
+[Event "?"]
+[White "Target"]
+[Black "Giri"]
+[Result "*"]
+1. Nf3 Nf6 *`
+
+	os.WriteFile(inputFile, []byte(input), 0644)
+	defer os.Remove(inputFile)
+	defer os.Remove(outputFile)
+
+	binPath := "../../../bin/build_markdown"
+	cmd := exec.Command(binPath, "-src", inputFile, "-out", outputFile, "-black-except", "Nakamura", "-exam", "Target")
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to run binary: %v", err)
+	}
+
+	content, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatal("Output file not created")
+	}
+	contentStr := string(content)
+
+	if strings.Contains(contentStr, "Nakamura") {
+		t.Error("Chapter with Nakamura as Black should be excluded by black-except")
+	}
+	if !strings.Contains(contentStr, "Carlsen") {
+		t.Error("Chapter with Carlsen as Black should be included (matches exam, not excluded)")
+	}
+	if !strings.Contains(contentStr, "Giri") {
+		t.Error("Chapter with Giri as Black should be included (matches exam, not excluded)")
+	}
+}
+
+// Test whitespace trimming in flag values and PGN fields
+func TestMain_WhiteExceptTrimsWhitespace(t *testing.T) {
+	inputFile := "/tmp/test_white_except_trim.pgn"
+	outputFile := "/tmp/test_white_except_trim_out.md"
+
+	input := `[Event "?"]
+[White "  Carlsen  "]
+[Black "Nakamura"]
+[Result "*"]
+1. e4 e5 *
+
+[Event "?"]
+[White "Nakamura"]
+[Black "Carlsen"]
+[Result "*"]
+1. d4 d5 *`
+
+	os.WriteFile(inputFile, []byte(input), 0644)
+	defer os.Remove(inputFile)
+	defer os.Remove(outputFile)
+
+	binPath := "../../../bin/build_markdown"
+	cmd := exec.Command(binPath, "-src", inputFile, "-out", outputFile, "-white-except", "Carlsen")
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to run binary: %v", err)
+	}
+
+	content, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatal("Output file not created")
+	}
+	contentStr := string(content)
+
+	if strings.Contains(contentStr, "Chapter 1:") {
+		t.Error("Chapter with Carlsen as White (with spaces) should be excluded after trim")
+	}
+	if !strings.Contains(contentStr, "Nakamura") {
+		t.Error("Chapter with Nakamura as White should be included")
+	}
+}
+
+// Test splitNames helper directly
+func TestSplitNames(t *testing.T) {
+	tests := []struct {
+		input string
+		want  []string
+	}{
+		{"", nil},
+		{"Carlsen", []string{"Carlsen"}},
+		{"Carlsen|Nakamura", []string{"Carlsen", "Nakamura"}},
+		{" Carlsen | Nakamura ", []string{"Carlsen", "Nakamura"}},
+		{"Carlsen||Nakamura", []string{"Carlsen", "Nakamura"}},
+		{"|Carlsen|", []string{"Carlsen"}},
+	}
+	for _, tt := range tests {
+		got := splitNames(tt.input)
+		if len(got) != len(tt.want) {
+			t.Errorf("splitNames(%q) = %v (len %d), want %v (len %d)", tt.input, got, len(got), tt.want, len(tt.want))
+			continue
+		}
+		for i := range got {
+			if got[i] != tt.want[i] {
+				t.Errorf("splitNames(%q) = %v, want %v (mismatch at index %d)", tt.input, got, tt.want, i)
+			}
+		}
+	}
+}
