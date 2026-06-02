@@ -709,6 +709,14 @@ reMove := regexp.MustCompile(`^(\d+)(\.{1,3})\s+(.+)$`)
 	return resultStr
 }
 
+func splitOutputPath(basePath string, part int) string {
+	dot := strings.LastIndex(basePath, ".")
+	if dot > 0 {
+		return fmt.Sprintf("%s_%d%s", basePath[:dot], part, basePath[dot:])
+	}
+	return fmt.Sprintf("%s_%d", basePath, part)
+}
+
 func main() {
 	src := flag.String("src", "", "Input PGN file")
 	out := flag.String("out", "", "Output Markdown file")
@@ -721,10 +729,16 @@ func main() {
 	exam := flag.String("exam", "", "Process only chapters where White field exactly matches this value. If chapter contains FEN, output only FEN. Otherwise, format normally.")
 	whiteExcept := flag.String("white-except", "", "Exclude chapters where White field matches. Pipe-separated for multiple values (e.g. \"Carlsen|Nakamura\")")
 	blackExcept := flag.String("black-except", "", "Exclude chapters where Black field matches. Pipe-separated for multiple values (e.g. \"Carlsen|Nakamura\")")
+	splitByChapters := flag.Int("split-by-chapters", 0, "Split output into multiple files, each containing at most N chapters (0 = no split)")
 	flag.Parse()
 
+	splitThreshold := *splitByChapters
+	if splitThreshold <= 0 {
+		splitThreshold = 0
+	}
+
 	if *src == "" || *out == "" {
-		fmt.Fprintf(os.Stderr, "Usage: %s -src <pgn_path> -out <md_path> [-skip <n>] [-chapters <n>] [-chapter-numbers <list>] [-inline-images] [-white-except <name>] [-black-except <name>]\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Usage: %s -src <pgn_path> -out <md_path> [-skip <n>] [-chapters <n>] [-chapter-numbers <list>] [-inline-images] [-white-except <name>] [-black-except <name>] [-split-by-chapters <n>]\n", os.Args[0])
 		os.Exit(1)
 	}
 
@@ -749,7 +763,7 @@ func main() {
 
 	games := splitGames(string(raw))
 
-	output := ""
+	var chaptersOutput []string
 	chapterNum := 0
 	var prevWhite string
 chapterLoop:
@@ -825,6 +839,8 @@ chapterLoop:
 			hasFEN = len(fenMatch) > 1
 		}
 
+		var buf strings.Builder
+
 		if isBookChapter {
 			// Book chapter format: ## White, ### Black
 			// If "vs." is found in White or Black, use the full text from that field
@@ -835,31 +851,31 @@ chapterLoop:
 				whiteTitle = white
 				// If vs. is in White, use it as ## and don't add separate ###
 				if white != prevWhite {
-					output += "## " + whiteTitle + "\n\n"
+					buf.WriteString("## " + whiteTitle + "\n\n")
 					prevWhite = white
 				}
 			} else if strings.Contains(black, " vs. ") {
 				// If vs. is in Black, use it as ###
 				blackTitle = black
 				if white != prevWhite {
-					output += "## " + whiteTitle + "\n\n"
+					buf.WriteString("## " + whiteTitle + "\n\n")
 					prevWhite = white
 				}
-				output += "### " + blackTitle + "\n\n"
+				buf.WriteString("### " + blackTitle + "\n\n")
 			} else {
 				// Normal case: no "vs." in either field
 				if white != prevWhite {
-					output += "## " + whiteTitle + "\n\n"
+					buf.WriteString("## " + whiteTitle + "\n\n")
 					prevWhite = white
 				}
 				if blackTitle != "" {
-					output += "### " + blackTitle + "\n\n"
+					buf.WriteString("### " + blackTitle + "\n\n")
 				}
 			}
 		} else {
 			// Normal game format: ## White vs. Black, City Year
 			title := buildChapterTitle(tags, chapterNum)
-			output += "## " + title + "\n\n"
+			buf.WriteString("## " + title + "\n\n")
 		}
 
 		// Exam mode: if chapter has FEN (and not starting position), output only FEN (no prefix)
@@ -876,7 +892,7 @@ chapterLoop:
 						fen = fmt.Sprintf("data:image/png;base64,%s", b64)
 					}
 				}
-				output += fen + "\n\n"
+				buf.WriteString(fen + "\n\n")
 			}
 		}
 
@@ -888,14 +904,33 @@ chapterLoop:
 				moves = replaceFENWithImages(moves, false)
 			}
 
-			output += moves + "\n\n"
+			buf.WriteString(moves + "\n\n")
 		}
+
+		chaptersOutput = append(chaptersOutput, buf.String())
 	}
 
-	err = os.WriteFile(*out, []byte(output), 0644)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error writing file: %v\n", err)
-		os.Exit(1)
+	if splitThreshold == 0 || len(chaptersOutput) <= splitThreshold {
+		err = os.WriteFile(*out, []byte(strings.Join(chaptersOutput, "")), 0644)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error writing file: %v\n", err)
+			os.Exit(1)
+		}
+	} else {
+		for i := 0; i < len(chaptersOutput); i += splitThreshold {
+			end := i + splitThreshold
+			if end > len(chaptersOutput) {
+				end = len(chaptersOutput)
+			}
+			partNum := i/splitThreshold + 1
+			partPath := splitOutputPath(*out, partNum)
+			partContent := strings.Join(chaptersOutput[i:end], "")
+			err = os.WriteFile(partPath, []byte(partContent), 0644)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error writing split file %s: %v\n", partPath, err)
+				os.Exit(1)
+			}
+		}
 	}
 }
 

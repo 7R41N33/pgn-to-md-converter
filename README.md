@@ -77,6 +77,7 @@ The `markdown_builder` script converts PGN files into formatted Markdown. Suppor
 - `-exam` — Exam mode: processes only chapters where White or Black **exactly** match the given string. If the chapter contains a FEN — outputs only the FEN. If FEN is absent — applies normal formatting (optional)
 - `-white-except` — Exclude chapters where White field matches. Pipe-separated for multiple values (e.g. `Carlsen|Nakamura`). Applied before `-exam` (optional)
 - `-black-except` — Exclude chapters where Black field matches. Pipe-separated for multiple values. Applied before `-exam` (optional)
+- `-split-by-chapters` — Split output into multiple files, each containing at most N chapters. If N ≤ 0 — ignored (optional)
 
 ### Examples
 
@@ -113,6 +114,12 @@ The `markdown_builder` script converts PGN files into formatted Markdown. Suppor
 
 # Exclude chapters where Black is Carlsen, then exam filter on Target
 ./bin/build_markdown -src input.pgn -out output.md -black-except "Carlsen" -exam "Target"
+
+# Split output into files with at most 10 chapters each
+./bin/build_markdown -src input.pgn -out output.md -split-by-chapters 10
+
+# Split after filters: skip 5, then split into files of 5 chapters each
+./bin/build_markdown -src input.pgn -out output.md -skip 5 -split-by-chapters 5
 ```
 
 ### Description
@@ -124,6 +131,7 @@ The `markdown_builder` script converts PGN files into formatted Markdown. Suppor
 - **Numbered lists:** By default formatted on new lines with indentation. Can be disabled via `-numbered-lists=false`
 - **Dash lists:** By default not formatted. Can be enabled via `-dash-lists=true`
 - **Exam mode:** Useful for creating study materials — exercise chapters show only the position (FEN), while introductory chapters are fully formatted
+- **Split by chapters:** When `-split-by-chapters <N>` is used, the output is split into multiple files (`output_1.md`, `output_2.md`, ...), each containing at most N chapters. Applied after all chapter filters
 - **Dependencies:** Uses the `fenlib` package for diagram generation
 
 ## Using fen_builder

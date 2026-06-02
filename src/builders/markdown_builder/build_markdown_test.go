@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"strings"
@@ -2729,5 +2730,367 @@ func TestSplitNames(t *testing.T) {
 				t.Errorf("splitNames(%q) = %v, want %v (mismatch at index %d)", tt.input, got, tt.want, i)
 			}
 		}
+	}
+}
+
+// Test splitOutputPath helper
+func TestSplitOutputPath(t *testing.T) {
+	tests := []struct {
+		basePath string
+		part     int
+		want     string
+	}{
+		{"theory.md", 1, "theory_1.md"},
+		{"theory.md", 2, "theory_2.md"},
+		{"/path/to/file.md", 3, "/path/to/file_3.md"},
+		{"noext", 1, "noext_1"},
+		{"file.", 1, "file_1."},
+	}
+	for _, tt := range tests {
+		got := splitOutputPath(tt.basePath, tt.part)
+		if got != tt.want {
+			t.Errorf("splitOutputPath(%q, %d) = %q, want %q", tt.basePath, tt.part, got, tt.want)
+		}
+	}
+}
+
+// Test split-by-chapters: splits into correct number of files
+func TestMain_SplitByChapters(t *testing.T) {
+	inputFile := "/tmp/test_split.pgn"
+	outputFile := "/tmp/test_split_out.md"
+
+	input := `[Event "?"]
+[White "Player1"]
+[Black "Opponent1"]
+[Result "*"]
+1. e4 e5 *
+
+[Event "?"]
+[White "Player2"]
+[Black "Opponent2"]
+[Result "*"]
+1. d4 d5 *
+
+[Event "?"]
+[White "Player3"]
+[Black "Opponent3"]
+[Result "*"]
+1. Nf3 Nf6 *
+
+[Event "?"]
+[White "Player4"]
+[Black "Opponent4"]
+[Result "*"]
+1. c4 c5 *
+
+[Event "?"]
+[White "Player5"]
+[Black "Opponent5"]
+[Result "*"]
+1. g3 g6 *`
+
+	os.WriteFile(inputFile, []byte(input), 0644)
+	defer os.Remove(inputFile)
+	defer os.Remove(outputFile)
+	for i := 1; i <= 3; i++ {
+		defer os.Remove(fmt.Sprintf("/tmp/test_split_out_%d.md", i))
+	}
+
+	binPath := "../../../bin/build_markdown"
+	cmd := exec.Command(binPath, "-src", inputFile, "-out", outputFile, "-split-by-chapters", "2")
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to run binary: %v", err)
+	}
+
+	// Should create 3 files: out_1.md (2 ch), out_2.md (2 ch), out_3.md (1 ch)
+	content1, err := os.ReadFile("/tmp/test_split_out_1.md")
+	if err != nil {
+		t.Fatal("Split file 1 not created")
+	}
+	content2, err := os.ReadFile("/tmp/test_split_out_2.md")
+	if err != nil {
+		t.Fatal("Split file 2 not created")
+	}
+	content3, err := os.ReadFile("/tmp/test_split_out_3.md")
+	if err != nil {
+		t.Fatal("Split file 3 not created")
+	}
+
+	c1 := string(content1)
+	c2 := string(content2)
+	c3 := string(content3)
+
+	if strings.Contains(c1, "Player3") {
+		t.Error("File 1 should not contain Player3")
+	}
+	if !strings.Contains(c2, "Player3") {
+		t.Error("File 2 should contain Player3")
+	}
+	if !strings.Contains(c3, "Player5") {
+		t.Error("File 3 should contain Player5")
+	}
+}
+
+// Test each split file contains the expected chapters
+func TestMain_SplitByChaptersContent(t *testing.T) {
+	inputFile := "/tmp/test_split_content.pgn"
+	outputFile := "/tmp/test_split_content_out.md"
+
+	input := `[Event "?"]
+[White "A"]
+[Black "B"]
+[Result "*"]
+1. e4 *
+
+[Event "?"]
+[White "C"]
+[Black "D"]
+[Result "*"]
+1. d4 *
+
+[Event "?"]
+[White "E"]
+[Black "F"]
+[Result "*"]
+1. Nf3 *`
+
+	os.WriteFile(inputFile, []byte(input), 0644)
+	defer os.Remove(inputFile)
+	defer os.Remove(outputFile)
+	defer os.Remove("/tmp/test_split_content_out_1.md")
+	defer os.Remove("/tmp/test_split_content_out_2.md")
+
+	binPath := "../../../bin/build_markdown"
+	cmd := exec.Command(binPath, "-src", inputFile, "-out", outputFile, "-split-by-chapters", "2")
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to run binary: %v", err)
+	}
+
+	c1, _ := os.ReadFile("/tmp/test_split_content_out_1.md")
+	c2, _ := os.ReadFile("/tmp/test_split_content_out_2.md")
+	s1 := string(c1)
+	s2 := string(c2)
+
+	// File 1: chapters A-B, C-D
+	if !strings.Contains(s1, "A, B") {
+		t.Error("File 1 should contain chapter A vs B")
+	}
+	if !strings.Contains(s1, "C, D") {
+		t.Error("File 1 should contain chapter C vs D")
+	}
+	// File 2: chapter E-F
+	if !strings.Contains(s2, "E, F") {
+		t.Error("File 2 should contain chapter E vs F")
+	}
+	if strings.Contains(s1, "E, F") {
+		t.Error("File 1 should not contain chapter E vs F")
+	}
+}
+
+// Test zero/negative split value produces single unsplit file
+func TestMain_SplitByChaptersZero(t *testing.T) {
+	inputFile := "/tmp/test_split_zero.pgn"
+	outputFile := "/tmp/test_split_zero_out.md"
+
+	input := `[Event "?"]
+[White "A"]
+[Black "B"]
+[Result "*"]
+1. e4 *
+
+[Event "?"]
+[White "C"]
+[Black "D"]
+[Result "*"]
+1. d4 *`
+
+	os.WriteFile(inputFile, []byte(input), 0644)
+	defer os.Remove(inputFile)
+	defer os.Remove(outputFile)
+
+	binPath := "../../../bin/build_markdown"
+
+	// Test with 0
+	cmd := exec.Command(binPath, "-src", inputFile, "-out", outputFile, "-split-by-chapters", "0")
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to run binary: %v", err)
+	}
+	content, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatal("Output file not created for split=0")
+	}
+	if !strings.Contains(string(content), "A, B") {
+		t.Error("Output with split=0 should contain chapters")
+	}
+
+	// Test with negative
+	os.Remove(outputFile)
+	cmd2 := exec.Command(binPath, "-src", inputFile, "-out", outputFile, "-split-by-chapters", "-1")
+	if err := cmd2.Run(); err != nil {
+		t.Fatalf("Failed to run binary: %v", err)
+	}
+	content2, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatal("Output file not created for split=-1")
+	}
+	if !strings.Contains(string(content2), "A, B") {
+		t.Error("Output with split=-1 should contain chapters")
+	}
+}
+
+// Test split composes with --skip
+func TestMain_SplitByChaptersWithSkip(t *testing.T) {
+	inputFile := "/tmp/test_split_skip.pgn"
+	outputFile := "/tmp/test_split_skip_out.md"
+
+	input := `[Event "?"]
+[White "A"]
+[Black "B"]
+[Result "*"]
+1. e4 *
+
+[Event "?"]
+[White "C"]
+[Black "D"]
+[Result "*"]
+1. d4 *
+
+[Event "?"]
+[White "E"]
+[Black "F"]
+[Result "*"]
+1. Nf3 *`
+
+	os.WriteFile(inputFile, []byte(input), 0644)
+	defer os.Remove(inputFile)
+	defer os.Remove(outputFile)
+	defer os.Remove("/tmp/test_split_skip_out_1.md")
+	defer os.Remove("/tmp/test_split_skip_out_2.md")
+
+	binPath := "../../../bin/build_markdown"
+	cmd := exec.Command(binPath, "-src", inputFile, "-out", outputFile, "-skip", "1", "-split-by-chapters", "1")
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to run binary: %v", err)
+	}
+
+	// After skip 1: chapters C-D, E-F (2 chapters), split=1 → 2 files
+	_, err1 := os.ReadFile("/tmp/test_split_skip_out_1.md")
+	if err1 != nil {
+		t.Fatal("Split file 1 not created for skip test")
+	}
+	_, err2 := os.ReadFile("/tmp/test_split_skip_out_2.md")
+	if err2 != nil {
+		t.Fatal("Split file 2 not created for skip test")
+	}
+
+	// Original output file should NOT exist (since splitting occurred)
+	_, errOrig := os.ReadFile(outputFile)
+	if errOrig == nil {
+		t.Error("Original output file should not exist when splitting")
+	}
+}
+
+// Test split composes with --exam + --white-except
+func TestMain_SplitByChaptersWithExamAndWhiteExcept(t *testing.T) {
+	inputFile := "/tmp/test_split_exam.pgn"
+	outputFile := "/tmp/test_split_exam_out.md"
+
+	input := `[Event "?"]
+[White "Target"]
+[Black "Carlsen"]
+[Result "*"]
+1. e4 *
+
+[Event "?"]
+[White "Target"]
+[Black "Nakamura"]
+[Result "*"]
+1. d4 *
+
+[Event "?"]
+[White "Target"]
+[Black "Giri"]
+[Result "*"]
+1. Nf3 *
+
+[Event "?"]
+[White "Other"]
+[Black "Ding"]
+[Result "*"]
+1. c4 *`
+
+	os.WriteFile(inputFile, []byte(input), 0644)
+	defer os.Remove(inputFile)
+	defer os.Remove(outputFile)
+	defer os.Remove("/tmp/test_split_exam_out_1.md")
+	defer os.Remove("/tmp/test_split_exam_out_2.md")
+
+	binPath := "../../../bin/build_markdown"
+	cmd := exec.Command(binPath, "-src", inputFile, "-out", outputFile, "-exam", "Target", "-white-except", "Carlsen", "-split-by-chapters", "1")
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to run binary: %v", err)
+	}
+
+	// After exam: chapters 1,2,3 (Target) -- white-except excludes Carlsen → chapters 2,3 (Nakamura, Giri)
+	// 2 chapters → split=1 → 2 files
+	_, err := os.ReadFile("/tmp/test_split_exam_out_1.md")
+	if err != nil {
+		t.Fatal("Split file 1 not created for exam+white-except test")
+	}
+	_, err = os.ReadFile("/tmp/test_split_exam_out_2.md")
+	if err != nil {
+		t.Fatal("Split file 2 not created for exam+white-except test")
+	}
+}
+
+// Test split composes with --chapter-numbers
+func TestMain_SplitByChaptersWithChapterNumbers(t *testing.T) {
+	inputFile := "/tmp/test_split_chapter_nums.pgn"
+	outputFile := "/tmp/test_split_chapter_nums_out.md"
+
+	input := `[Event "?"]
+[White "A"]
+[Black "B"]
+[Result "*"]
+1. e4 *
+
+[Event "?"]
+[White "C"]
+[Black "D"]
+[Result "*"]
+1. d4 *
+
+[Event "?"]
+[White "E"]
+[Black "F"]
+[Result "*"]
+1. Nf3 *
+
+[Event "?"]
+[White "G"]
+[Black "H"]
+[Result "*"]
+1. c4 *`
+
+	os.WriteFile(inputFile, []byte(input), 0644)
+	defer os.Remove(inputFile)
+	defer os.Remove(outputFile)
+	defer os.Remove("/tmp/test_split_chapter_nums_out_1.md")
+	defer os.Remove("/tmp/test_split_chapter_nums_out_2.md")
+
+	binPath := "../../../bin/build_markdown"
+	cmd := exec.Command(binPath, "-src", inputFile, "-out", outputFile, "-chapter-numbers", "1,3,4", "-split-by-chapters", "2")
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to run binary: %v", err)
+	}
+
+	// Chapters 1,3,4 (3 chapters), split=2 → 2 files
+	_, err := os.ReadFile("/tmp/test_split_chapter_nums_out_1.md")
+	if err != nil {
+		t.Fatal("Split file 1 not created for chapter-numbers test")
+	}
+	_, err = os.ReadFile("/tmp/test_split_chapter_nums_out_2.md")
+	if err != nil {
+		t.Fatal("Split file 2 not created for chapter-numbers test")
 	}
 }
