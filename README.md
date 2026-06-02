@@ -77,6 +77,8 @@ The `markdown_builder` script converts PGN files into formatted Markdown. Suppor
 - `-exam` — Exam mode: processes only chapters where White or Black **exactly** match the given string. If the chapter contains a FEN — outputs only the FEN. If FEN is absent — applies normal formatting (optional)
 - `-white-except` — Exclude chapters where White field matches. Pipe-separated for multiple values (e.g. `Carlsen|Nakamura`). Applied before `-exam` (optional)
 - `-black-except` — Exclude chapters where Black field matches. Pipe-separated for multiple values. Applied before `-exam` (optional)
+- `-white-only` — Include only chapters where White field matches. Pipe-separated for multiple values. Applied after `-white-except`/`-black-except`, before `-exam` (optional)
+- `-black-only` — Include only chapters where Black field matches. Pipe-separated for multiple values. Applied after `-white-except`/`-black-except`, before `-exam` (optional)
 - `-split-by-chapters` — Split output into multiple files, each containing at most N chapters. If N ≤ 0 — ignored (optional)
 
 ### Examples
@@ -120,6 +122,15 @@ The `markdown_builder` script converts PGN files into formatted Markdown. Suppor
 
 # Split after filters: skip 5, then split into files of 5 chapters each
 ./bin/build_markdown -src input.pgn -out output.md -skip 5 -split-by-chapters 5
+
+# Include only chapters where White is Carlsen
+./bin/build_markdown -src input.pgn -out output.md -white-only "Carlsen"
+
+# Include only chapters where White is Carlsen or Nakamura (pipe-separated)
+./bin/build_markdown -src input.pgn -out output.md -white-only "Carlsen|Nakamura"
+
+# Exclude Carlsen, then include only Nakamura, then exam filter
+./bin/build_markdown -src input.pgn -out output.md -white-except "Carlsen" -white-only "Carlsen|Nakamura" -exam "Nakamura"
 ```
 
 ### Description

@@ -3094,3 +3094,281 @@ func TestMain_SplitByChaptersWithChapterNumbers(t *testing.T) {
 		t.Fatal("Split file 2 not created for chapter-numbers test")
 	}
 }
+
+// Test white-only: single value includes matching chapter
+func TestMain_WhiteOnlySingle(t *testing.T) {
+	inputFile := "/tmp/test_white_only_single.pgn"
+	outputFile := "/tmp/test_white_only_single_out.md"
+
+	input := `[Event "?"]
+[White "Carlsen"]
+[Black "Nakamura"]
+[Result "*"]
+1. e4 e5 *
+
+[Event "?"]
+[White "Nakamura"]
+[Black "Carlsen"]
+[Result "*"]
+1. d4 d5 *`
+
+	os.WriteFile(inputFile, []byte(input), 0644)
+	defer os.Remove(inputFile)
+	defer os.Remove(outputFile)
+
+	binPath := "../../../bin/build_markdown"
+	cmd := exec.Command(binPath, "-src", inputFile, "-out", outputFile, "-white-only", "Carlsen")
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to run binary: %v", err)
+	}
+
+	content, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatal("Output file not created")
+	}
+	contentStr := string(content)
+
+	if !strings.Contains(contentStr, "Carlsen") {
+		t.Error("Chapter with Carlsen as White should be included")
+	}
+	// Chapter 2 (Nakamura vs Carlsen) excluded by white-only Carlsen
+	// Only Chapter 1 (Carlsen vs Nakamura) remains — Nakamura appears as Black
+	if strings.Count(contentStr, "Carlsen") > 1 {
+		t.Error("Only one chapter with Carlsen as White should remain")
+	}
+}
+
+// Test black-only: single value includes matching chapter
+func TestMain_BlackOnlySingle(t *testing.T) {
+	inputFile := "/tmp/test_black_only_single.pgn"
+	outputFile := "/tmp/test_black_only_single_out.md"
+
+	input := `[Event "?"]
+[White "Carlsen"]
+[Black "Nakamura"]
+[Result "*"]
+1. e4 e5 *
+
+[Event "?"]
+[White "Nakamura"]
+[Black "Carlsen"]
+[Result "*"]
+1. d4 d5 *`
+
+	os.WriteFile(inputFile, []byte(input), 0644)
+	defer os.Remove(inputFile)
+	defer os.Remove(outputFile)
+
+	binPath := "../../../bin/build_markdown"
+	cmd := exec.Command(binPath, "-src", inputFile, "-out", outputFile, "-black-only", "Carlsen")
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to run binary: %v", err)
+	}
+
+	content, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatal("Output file not created")
+	}
+	contentStr := string(content)
+
+	if !strings.Contains(contentStr, "Carlsen") {
+		t.Error("Chapter with Carlsen as Black should be included")
+	}
+	// Chapter 1 (Carlsen,Nakamura) excluded (Black=Nakamura doesn't match Carlsen)
+	// Chapter 2 (Nakamura,Carlsen) included (Black=Carlsen matches)
+	// Nakamura appears in output as the White player of included chapter 2
+	if strings.Count(contentStr, "Carlsen") > 2 {
+		t.Error("Only one chapter with Carlsen as Black should remain")
+	}
+}
+
+// Test white-only: multiple pipe-separated values
+func TestMain_WhiteOnlyMultiple(t *testing.T) {
+	inputFile := "/tmp/test_white_only_multiple.pgn"
+	outputFile := "/tmp/test_white_only_multiple_out.md"
+
+	input := `[Event "?"]
+[White "Carlsen"]
+[Black "A"]
+[Result "*"]
+1. e4 *
+
+[Event "?"]
+[White "Nakamura"]
+[Black "B"]
+[Result "*"]
+1. d4 *
+
+[Event "?"]
+[White "Giri"]
+[Black "C"]
+[Result "*"]
+1. Nf3 *`
+
+	os.WriteFile(inputFile, []byte(input), 0644)
+	defer os.Remove(inputFile)
+	defer os.Remove(outputFile)
+
+	binPath := "../../../bin/build_markdown"
+	cmd := exec.Command(binPath, "-src", inputFile, "-out", outputFile, "-white-only", "Carlsen|Nakamura")
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to run binary: %v", err)
+	}
+
+	content, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatal("Output file not created")
+	}
+	contentStr := string(content)
+
+	if !strings.Contains(contentStr, "Carlsen") {
+		t.Error("Chapter with Carlsen as White should be included")
+	}
+	if !strings.Contains(contentStr, "Nakamura") {
+		t.Error("Chapter with Nakamura as White should be included")
+	}
+	if strings.Contains(contentStr, "Giri") {
+		t.Error("Chapter with Giri as White should be excluded")
+	}
+}
+
+// Test both flags together (logical AND)
+func TestMain_WhiteOnlyAndBlackOnly(t *testing.T) {
+	inputFile := "/tmp/test_white_black_only.pgn"
+	outputFile := "/tmp/test_white_black_only_out.md"
+
+	input := `[Event "?"]
+[White "Carlsen"]
+[Black "Nakamura"]
+[Result "*"]
+1. e4 *
+
+[Event "?"]
+[White "Carlsen"]
+[Black "Giri"]
+[Result "*"]
+1. d4 *
+
+[Event "?"]
+[White "Nakamura"]
+[Black "Carlsen"]
+[Result "*"]
+1. Nf3 *`
+
+	os.WriteFile(inputFile, []byte(input), 0644)
+	defer os.Remove(inputFile)
+	defer os.Remove(outputFile)
+
+	binPath := "../../../bin/build_markdown"
+	cmd := exec.Command(binPath, "-src", inputFile, "-out", outputFile, "-white-only", "Carlsen", "-black-only", "Giri")
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to run binary: %v", err)
+	}
+
+	content, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatal("Output file not created")
+	}
+	contentStr := string(content)
+
+	// Only chapter 2 (Carlsen vs Giri) should remain
+	if strings.Contains(contentStr, "Nakamura") {
+		t.Error("Chapter with Carlsen vs Nakamura should be excluded (Black doesn't match)")
+	}
+	if !strings.Contains(contentStr, "Giri") {
+		t.Error("Chapter with Carlsen vs Giri should be included (both match)")
+	}
+	if strings.Contains(contentStr, "Carlsen") && strings.Count(contentStr, "Carlsen") > 1 {
+		t.Error("Only one chapter with Carlsen should remain")
+	}
+}
+
+// Test pipeline order: exclusion before inclusion before exam
+func TestMain_WhiteOnlyPipelineOrder(t *testing.T) {
+	inputFile := "/tmp/test_white_only_pipeline.pgn"
+	outputFile := "/tmp/test_white_only_pipeline_out.md"
+
+	input := `[Event "?"]
+[White "Carlsen"]
+[Black "A"]
+[Result "*"]
+1. e4 *
+
+[Event "?"]
+[White "Nakamura"]
+[Black "B"]
+[Result "*"]
+1. d4 *
+
+[Event "?"]
+[White "Carlsen"]
+[Black "C"]
+[Result "*"]
+1. Nf3 *`
+
+	os.WriteFile(inputFile, []byte(input), 0644)
+	defer os.Remove(inputFile)
+	defer os.Remove(outputFile)
+
+	binPath := "../../../bin/build_markdown"
+	// Pipeline: white-except Carlsen (removes 2 Carlsen chapters) → white-only Carlsen|Nakamura → exam Nakamura
+	// After exclusion: only Nakamura remains → inclusion keeps Nakamura → exam matches Nakamura
+	cmd := exec.Command(binPath, "-src", inputFile, "-out", outputFile, "-white-except", "Carlsen", "-white-only", "Carlsen|Nakamura", "-exam", "Nakamura")
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to run binary: %v", err)
+	}
+
+	content, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatal("Output file not created")
+	}
+	contentStr := string(content)
+
+	if !strings.Contains(contentStr, "Nakamura") {
+		t.Error("Chapter with Nakamura as White should be included through pipeline")
+	}
+	if strings.Contains(contentStr, "Carlsen") {
+		t.Error("Chapters with Carlsen should be excluded by pipeline")
+	}
+}
+
+// Test non-matching chapters are excluded by white-only
+func TestMain_WhiteOnlyNonMatching(t *testing.T) {
+	inputFile := "/tmp/test_white_only_nonmatch.pgn"
+	outputFile := "/tmp/test_white_only_nonmatch_out.md"
+
+	input := `[Event "?"]
+[White "Carlsen"]
+[Black "A"]
+[Result "*"]
+1. e4 *
+
+[Event "?"]
+[White "Nakamura"]
+[Black "B"]
+[Result "*"]
+1. d4 *`
+
+	os.WriteFile(inputFile, []byte(input), 0644)
+	defer os.Remove(inputFile)
+	defer os.Remove(outputFile)
+
+	binPath := "../../../bin/build_markdown"
+	cmd := exec.Command(binPath, "-src", inputFile, "-out", outputFile, "-white-only", "Giri")
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to run binary: %v", err)
+	}
+
+	content, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatal("Output file not created")
+	}
+	contentStr := string(content)
+
+	if strings.Contains(contentStr, "Carlsen") {
+		t.Error("Non-matching Carlsen chapter should be excluded")
+	}
+	if strings.Contains(contentStr, "Nakamura") {
+		t.Error("Non-matching Nakamura chapter should be excluded")
+	}
+}

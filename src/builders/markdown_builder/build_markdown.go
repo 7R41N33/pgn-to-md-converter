@@ -729,6 +729,8 @@ func main() {
 	exam := flag.String("exam", "", "Process only chapters where White field exactly matches this value. If chapter contains FEN, output only FEN. Otherwise, format normally.")
 	whiteExcept := flag.String("white-except", "", "Exclude chapters where White field matches. Pipe-separated for multiple values (e.g. \"Carlsen|Nakamura\")")
 	blackExcept := flag.String("black-except", "", "Exclude chapters where Black field matches. Pipe-separated for multiple values (e.g. \"Carlsen|Nakamura\")")
+	whiteOnly := flag.String("white-only", "", "Include only chapters where White field matches. Pipe-separated for multiple values (e.g. \"Carlsen|Nakamura\")")
+	blackOnly := flag.String("black-only", "", "Include only chapters where Black field matches. Pipe-separated for multiple values")
 	splitByChapters := flag.Int("split-by-chapters", 0, "Split output into multiple files, each containing at most N chapters (0 = no split)")
 	flag.Parse()
 
@@ -738,7 +740,7 @@ func main() {
 	}
 
 	if *src == "" || *out == "" {
-		fmt.Fprintf(os.Stderr, "Usage: %s -src <pgn_path> -out <md_path> [-skip <n>] [-chapters <n>] [-chapter-numbers <list>] [-inline-images] [-white-except <name>] [-black-except <name>] [-split-by-chapters <n>]\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Usage: %s -src <pgn_path> -out <md_path> [-skip <n>] [-chapters <n>] [-chapter-numbers <list>] [-inline-images] [-white-except <name>] [-black-except <name>] [-white-only <name>] [-black-only <name>] [-split-by-chapters <n>]\n", os.Args[0])
 		os.Exit(1)
 	}
 
@@ -805,6 +807,36 @@ chapterLoop:
 				if rawBlack == name {
 					continue chapterLoop
 				}
+			}
+		}
+
+		// If white-only is set, skip chapters where White doesn't match any included name
+		if *whiteOnly != "" {
+			rawWhite := strings.TrimSpace(tags["White"])
+			matched := false
+			for _, name := range splitNames(*whiteOnly) {
+				if rawWhite == name {
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				continue chapterLoop
+			}
+		}
+
+		// If black-only is set, skip chapters where Black doesn't match any included name
+		if *blackOnly != "" {
+			rawBlack := strings.TrimSpace(tags["Black"])
+			matched := false
+			for _, name := range splitNames(*blackOnly) {
+				if rawBlack == name {
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				continue chapterLoop
 			}
 		}
 
