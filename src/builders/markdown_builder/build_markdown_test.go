@@ -3372,3 +3372,251 @@ func TestMain_WhiteOnlyNonMatching(t *testing.T) {
 		t.Error("Non-matching Nakamura chapter should be excluded")
 	}
 }
+
+// Test white-only-regex: regex matches White field
+func TestMain_WhiteOnlyRegex_Match(t *testing.T) {
+	inputFile := "/tmp/test_white_regex_match.pgn"
+	outputFile := "/tmp/test_white_regex_match_out.md"
+
+	input := `[Event "?"]
+[White "Carlsen, Magnus"]
+[Black "PlayerA"]
+[Result "*"]
+1. e4 e5 *
+
+[Event "?"]
+[White "PlayerB"]
+[Black "PlayerC"]
+[Result "*"]
+1. d4 d5 *`
+
+	os.WriteFile(inputFile, []byte(input), 0644)
+	defer os.Remove(inputFile)
+	defer os.Remove(outputFile)
+
+	binPath := "../../../bin/build_markdown"
+	cmd := exec.Command(binPath, "-src", inputFile, "-out", outputFile, "-white-only-regex", "Carl")
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to run binary: %v", err)
+	}
+
+	content, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatal("Output file not created")
+	}
+	contentStr := string(content)
+
+	if !strings.Contains(contentStr, "Carlsen, Magnus") {
+		t.Error("Chapter with Carlsen as White should be included (regex 'Carl' matches)")
+	}
+	if strings.Contains(contentStr, "PlayerB") {
+		t.Error("Chapter with PlayerB as White should be excluded (regex 'Carl' does not match)")
+	}
+}
+
+// Test white-only-regex: regex doesn't match, chapter excluded
+func TestMain_WhiteOnlyRegex_NoMatch(t *testing.T) {
+	inputFile := "/tmp/test_white_regex_nomatch.pgn"
+	outputFile := "/tmp/test_white_regex_nomatch_out.md"
+
+	input := `[Event "?"]
+[White "Carlsen, Magnus"]
+[Black "Nakamura, Hikaru"]
+[Result "*"]
+1. e4 e5 *`
+
+	os.WriteFile(inputFile, []byte(input), 0644)
+	defer os.Remove(inputFile)
+	defer os.Remove(outputFile)
+
+	binPath := "../../../bin/build_markdown"
+	cmd := exec.Command(binPath, "-src", inputFile, "-out", outputFile, "-white-only-regex", "Anand")
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to run binary: %v", err)
+	}
+
+	content, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatal("Output file not created")
+	}
+	contentStr := strings.TrimSpace(string(content))
+
+	if contentStr != "" {
+		t.Errorf("Expected empty output when no chapter matches regex, got: %q", contentStr)
+	}
+}
+
+// Test white-only-regex: multiple pipe-separated patterns
+func TestMain_WhiteOnlyRegex_Pipe(t *testing.T) {
+	inputFile := "/tmp/test_white_regex_pipe.pgn"
+	outputFile := "/tmp/test_white_regex_pipe_out.md"
+
+	input := `[Event "?"]
+[White "Carlsen, Magnus"]
+[Black "A"]
+[Result "*"]
+1. e4 *
+
+[Event "?"]
+[White "Nakamura, Hikaru"]
+[Black "B"]
+[Result "*"]
+1. d4 *
+
+[Event "?"]
+[White "Giri, Anish"]
+[Black "C"]
+[Result "*"]
+1. Nf3 *`
+
+	os.WriteFile(inputFile, []byte(input), 0644)
+	defer os.Remove(inputFile)
+	defer os.Remove(outputFile)
+
+	binPath := "../../../bin/build_markdown"
+	cmd := exec.Command(binPath, "-src", inputFile, "-out", outputFile, "-white-only-regex", "Carl|Nak")
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to run binary: %v", err)
+	}
+
+	content, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatal("Output file not created")
+	}
+	contentStr := string(content)
+
+	if !strings.Contains(contentStr, "Carlsen, Magnus") {
+		t.Error("Chapter with Carlsen as White should be included (matches 'Carl')")
+	}
+	if !strings.Contains(contentStr, "Nakamura, Hikaru") {
+		t.Error("Chapter with Nakamura as White should be included (matches 'Nak')")
+	}
+	if strings.Contains(contentStr, "Giri, Anish") {
+		t.Error("Chapter with Giri as White should be excluded (no pattern matches)")
+	}
+}
+
+// Test white-only-regex: invalid regex causes exit error
+func TestMain_WhiteOnlyRegex_InvalidPattern(t *testing.T) {
+	inputFile := "/tmp/test_white_regex_invalid.pgn"
+	outputFile := "/tmp/test_white_regex_invalid_out.md"
+
+	input := `[Event "?"]
+[White "Carlsen"]
+[Black "Nakamura"]
+[Result "*"]
+1. e4 e5 *`
+
+	os.WriteFile(inputFile, []byte(input), 0644)
+	defer os.Remove(inputFile)
+	defer os.Remove(outputFile)
+
+	binPath := "../../../bin/build_markdown"
+	cmd := exec.Command(binPath, "-src", inputFile, "-out", outputFile, "-white-only-regex", "[invalid")
+	err := cmd.Run()
+	if err == nil {
+		t.Error("Expected error for invalid regex pattern, but command succeeded")
+	}
+}
+
+// Test white-only-regex: composition with white-except
+func TestMain_WhiteOnlyRegex_WithWhiteExcept(t *testing.T) {
+	inputFile := "/tmp/test_white_regex_except.pgn"
+	outputFile := "/tmp/test_white_regex_except_out.md"
+
+	input := `[Event "?"]
+[White "Carlsen, Magnus"]
+[Black "A"]
+[Result "*"]
+1. e4 *
+
+[Event "?"]
+[White "Carlsen, Magnus"]
+[Black "B"]
+[Result "*"]
+1. d4 *
+
+[Event "?"]
+[White "Nakamura, Hikaru"]
+[Black "C"]
+[Result "*"]
+1. Nf3 *`
+
+	os.WriteFile(inputFile, []byte(input), 0644)
+	defer os.Remove(inputFile)
+	defer os.Remove(outputFile)
+
+	binPath := "../../../bin/build_markdown"
+	// white-except removes exact match "Carlsen, Magnus" → only Nakamura chapter reaches regex inclusion
+	// regex "Carl|Nak" matches Nakamura → included
+	cmd := exec.Command(binPath, "-src", inputFile, "-out", outputFile, "-white-except", "Carlsen, Magnus", "-white-only-regex", "Carl|Nak")
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to run binary: %v", err)
+	}
+
+	content, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatal("Output file not created")
+	}
+	contentStr := string(content)
+
+	if strings.Contains(contentStr, "Carlsen, Magnus") {
+		t.Error("Chapter with Carlsen as White should be excluded by white-except")
+	}
+	if !strings.Contains(contentStr, "Nakamura, Hikaru") {
+		t.Error("Chapter with Nakamura as White should be included (passes regex filter)")
+	}
+}
+
+// Test white-only-regex: combined with white-only (both filters)
+func TestMain_WhiteOnlyRegex_CombinedWithWhiteOnly(t *testing.T) {
+	inputFile := "/tmp/test_white_regex_combined.pgn"
+	outputFile := "/tmp/test_white_regex_combined_out.md"
+
+	input := `[Event "?"]
+[White "Carlsen, Magnus"]
+[Black "A"]
+[Result "*"]
+1. e4 *
+
+[Event "?"]
+[White "Carlsen, Magnus"]
+[Black "B"]
+[Result "*"]
+1. d4 *
+
+[Event "?"]
+[White "Nakamura, Hikaru"]
+[Black "C"]
+[Result "*"]
+1. Nf3 *`
+
+	os.WriteFile(inputFile, []byte(input), 0644)
+	defer os.Remove(inputFile)
+	defer os.Remove(outputFile)
+
+	binPath := "../../../bin/build_markdown"
+	// white-only exact match "Carlsen, Magnus" keeps only 2 Carlsen chapters
+	// white-only-regex "Magnus" keeps those same chapters
+	cmd := exec.Command(binPath, "-src", inputFile, "-out", outputFile, "-white-only", "Carlsen, Magnus", "-white-only-regex", "Magnus")
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to run binary: %v", err)
+	}
+
+	content, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatal("Output file not created")
+	}
+	contentStr := string(content)
+
+	if !strings.Contains(contentStr, "Carlsen, Magnus") {
+		t.Error("Chapter with Carlsen as White should be included (passes both filters)")
+	}
+	if strings.Contains(contentStr, "Nakamura, Hikaru") {
+		t.Error("Chapter with Nakamura as White should be excluded (fails white-only exact match)")
+	}
+	// Both Carlsen chapters pass both filters, so "Carlsen" should appear at least twice
+	if strings.Count(contentStr, "Carlsen, Magnus") < 2 {
+		t.Errorf("Expected 2 Carlsen chapters in output, got %d", strings.Count(contentStr, "Carlsen, Magnus"))
+	}
+}

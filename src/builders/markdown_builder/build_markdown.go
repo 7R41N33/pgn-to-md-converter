@@ -731,6 +731,7 @@ func main() {
 	blackExcept := flag.String("black-except", "", "Exclude chapters where Black field matches. Pipe-separated for multiple values (e.g. \"Carlsen|Nakamura\")")
 	whiteOnly := flag.String("white-only", "", "Include only chapters where White field matches. Pipe-separated for multiple values (e.g. \"Carlsen|Nakamura\")")
 	blackOnly := flag.String("black-only", "", "Include only chapters where Black field matches. Pipe-separated for multiple values")
+	whiteOnlyRegex := flag.String("white-only-regex", "", "Include only chapters where White field matches any regex pattern. Pipe-separated for multiple patterns (e.g. \"Carl|Nak\")")
 	splitByChapters := flag.Int("split-by-chapters", 0, "Split output into multiple files, each containing at most N chapters (0 = no split)")
 	flag.Parse()
 
@@ -740,7 +741,7 @@ func main() {
 	}
 
 	if *src == "" || *out == "" {
-		fmt.Fprintf(os.Stderr, "Usage: %s -src <pgn_path> -out <md_path> [-skip <n>] [-chapters <n>] [-chapter-numbers <list>] [-inline-images] [-white-except <name>] [-black-except <name>] [-white-only <name>] [-black-only <name>] [-split-by-chapters <n>]\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Usage: %s -src <pgn_path> -out <md_path> [-skip <n>] [-chapters <n>] [-chapter-numbers <list>] [-inline-images] [-white-except <name>] [-black-except <name>] [-white-only <name>] [-white-only-regex <pattern>] [-black-only <name>] [-split-by-chapters <n>]\n", os.Args[0])
 		os.Exit(1)
 	}
 
@@ -768,6 +769,23 @@ func main() {
 	var chaptersOutput []string
 	chapterNum := 0
 	var prevWhite string
+
+	// Pre-compile white-only-regex patterns
+	var whiteOnlyRegexps []*regexp.Regexp
+	if *whiteOnlyRegex != "" {
+		for _, pattern := range splitNames(*whiteOnlyRegex) {
+			if pattern == "" {
+				continue
+			}
+			re, err := regexp.Compile(pattern)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error: invalid regex pattern in --white-only-regex: %q: %v\n", pattern, err)
+				os.Exit(1)
+			}
+			whiteOnlyRegexps = append(whiteOnlyRegexps, re)
+		}
+	}
+
 chapterLoop:
 	for i, g := range games {
 		// If chapter-numbers is provided, filter by index (1-based)
@@ -816,6 +834,21 @@ chapterLoop:
 			matched := false
 			for _, name := range splitNames(*whiteOnly) {
 				if rawWhite == name {
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				continue chapterLoop
+			}
+		}
+
+		// If white-only-regex is set, skip chapters where White doesn't match any regex pattern
+		if len(whiteOnlyRegexps) > 0 {
+			rawWhite := strings.TrimSpace(tags["White"])
+			matched := false
+			for _, re := range whiteOnlyRegexps {
+				if re.MatchString(rawWhite) {
 					matched = true
 					break
 				}
